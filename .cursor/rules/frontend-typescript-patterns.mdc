@@ -1,0 +1,346 @@
+---
+description: TypeScript best practices, promise handling, and code quality patterns for the frontend
+globs: finance-poc-frontend/**/*.{ts,tsx}
+alwaysApply: false
+---
+
+# TypeScript Patterns and Best Practices
+
+**MANDATORY**: All code must follow these TypeScript and code quality patterns.
+
+**POC Context**: While maintaining type safety, prioritize clarity and speed of iteration. Use proper types but avoid over-engineering for a proof-of-concept.
+
+## Promise Handling
+
+### Always Await Promises or Use Void
+
+**CRITICAL**: Always handle promises explicitly.
+
+**Rules**:
+
+- **ALWAYS** await promises in API hooks and async functions
+- If you don't need the response, use `void` to explicitly mark the promise as intentionally not awaited
+- When invalidating queries, **ALWAYS** use `async/await` - never use `.then()` or fire-and-forget patterns
+
+**Correct Patterns**:
+
+```typescript
+// ✅ CORRECT - Await promise
+const handleSubmit = async () => {
+  await createUser({ name: 'John' });
+  await queryClient.invalidateQueries({ queryKey: ['users'] });
+};
+
+// ✅ CORRECT - Void when response not needed
+const handleClick = () => {
+  void trackEvent('button_clicked');
+};
+
+// ✅ CORRECT - Async/await for query invalidation
+const handleDelete = async () => {
+  await deleteUser(userId);
+  await queryClient.invalidateQueries({ queryKey: ['users'] });
+};
+```
+
+**Incorrect Patterns**:
+
+```typescript
+// ❌ WRONG - Fire and forget without void
+const handleClick = () => {
+  trackEvent('button_clicked'); // Missing void or await
+};
+
+// ❌ WRONG - Using .then() instead of async/await
+const handleDelete = () => {
+  deleteUser(userId).then(() => {
+    queryClient.invalidateQueries({ queryKey: ['users'] });
+  });
+};
+```
+
+## Nullish Coalescing
+
+### Prefer `??` Over `||` for Null/Undefined Checks
+
+**CRITICAL**: Always use `??` instead of `||` when checking for `null` or `undefined`.
+
+**Why**:
+
+- `??` only checks for `null` and `undefined`
+- `||` also treats falsy values (`0`, `''`, `false`) as missing
+- Only use `||` when you specifically want to handle all falsy values
+
+**Correct Patterns**:
+
+```typescript
+// ✅ CORRECT - Use ?? for null/undefined checks
+const name = user.name ?? 'Anonymous';
+const count = items?.length ?? 0;
+const color = workflow.color ?? undefined;
+const enabled = options?.enabled ?? true;
+```
+
+**Incorrect Patterns**:
+
+```typescript
+// ❌ WRONG - Using || when ?? is more appropriate
+const name = user.name || 'Anonymous'; // This treats empty string as missing
+const count = items?.length || 0; // This treats 0 as missing
+const enabled = options?.enabled || true; // This treats false as missing
+```
+
+**When to Use `||`**:
+
+```typescript
+// ✅ CORRECT - Use || when you want to handle all falsy values
+const displayName = user.displayName || user.name || 'Anonymous';
+const isActive = status === 'active' || status === 'pending';
+```
+
+## Type Safety
+
+### Never Use `any` Type
+
+**CRITICAL**: Never use the `any` type unless it's absolutely impossible to type correctly.
+
+**Rules**:
+
+- Always try to infer or define proper types
+- If typing is challenging, use `unknown` and add type guards instead of `any`
+- Use type assertions only when necessary and with proper type narrowing
+- Define types for API requests and responses
+
+**Correct Patterns**:
+
+```typescript
+// ✅ CORRECT - Properly typed function
+const handleData = (data: User) => {
+  console.log(data.name);
+};
+
+// ✅ CORRECT - Use unknown and type guards
+const handleData = (data: unknown) => {
+  if (isUser(data)) {
+    // data is now typed as User
+    console.log(data.name);
+  }
+};
+
+function isUser(value: unknown): value is User {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'id' in value &&
+    'name' in value
+  );
+}
+```
+
+**Incorrect Patterns**:
+
+```typescript
+// ❌ WRONG - Using any type
+const handleData = (data: any) => {
+  console.log(data.name); // No type safety
+};
+
+// ❌ WRONG - Not typing at all
+const handleData = (data) => {
+  console.log(data.name); // Missing type annotation
+};
+```
+
+## Type Mutations and Queries Correctly
+
+### Always Properly Type React Query Operations
+
+**CRITICAL**: Always properly type React Query mutations and queries in hooks.
+
+**Rules**:
+
+- Use TypeScript generics to type the return values and variables
+- Define types for API requests and responses
+- Only skip typing if it's genuinely impossible (e.g., dynamic endpoints that can't be typed at compile time)
+
+**Correct Patterns**:
+
+```typescript
+// ✅ CORRECT - Properly typed mutation
+import { useMutation } from '@tanstack/react-query';
+import type { User, CreateUserInput } from '@/types/user';
+
+export const useCreateUser = () => {
+  return useMutation<User, Error, CreateUserInput>({
+    mutationFn: async (input: CreateUserInput): Promise<User> => {
+      const response = await fetch('/api/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(input),
+      });
+      if (!response.ok) {
+        throw new Error('Failed to create user');
+      }
+      return response.json();
+    },
+  });
+};
+
+// ✅ CORRECT - Properly typed query
+import { useQuery } from '@tanstack/react-query';
+import type { User } from '@/types/user';
+
+export const useGetUser = (userId: string) => {
+  return useQuery<User, Error>({
+    queryKey: ['user', userId],
+    queryFn: async (): Promise<User> => {
+      const response = await fetch(`/api/users/${userId}`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch user');
+      }
+      return response.json();
+    },
+  });
+};
+```
+
+**Incorrect Patterns**:
+
+```typescript
+// ❌ WRONG - Using any type
+export const useCreateUser = () => {
+  return useMutation<any, any, any>({
+    mutationFn: async (input: any) => {
+      // Never use any
+    },
+  });
+};
+
+// ❌ WRONG - Not typing at all
+export const useCreateUser = () => {
+  return useMutation({
+    mutationFn: async (input) => {
+      // Missing type parameters and annotations
+    },
+  });
+};
+```
+
+## API Type Definitions
+
+### Define Types for API Requests and Responses
+
+**CRITICAL**: Always define proper types for API interactions.
+
+**Rules**:
+
+- Define types in a shared location (e.g., `src/types/`)
+- Use consistent naming: `{Entity}`, `Create{Entity}Input`, `Update{Entity}Input`
+- Export types so they can be reused across the application
+
+**Correct Patterns**:
+
+```typescript
+// ✅ CORRECT - Types defined in src/types/user.ts
+export interface User {
+  id: string;
+  name: string;
+  email: string;
+  createdAt: string;
+}
+
+export interface CreateUserInput {
+  name: string;
+  email: string;
+  password: string;
+}
+
+export interface UpdateUserInput {
+  id: string;
+  name?: string;
+  email?: string;
+}
+
+// ✅ CORRECT - Using types in hooks
+import type { User, CreateUserInput } from '@/types/user';
+
+export const useCreateUser = () => {
+  return useMutation<User, Error, CreateUserInput>({
+    mutationFn: async (input: CreateUserInput): Promise<User> => {
+      // Implementation
+    },
+  });
+};
+```
+
+**Incorrect Patterns**:
+
+```typescript
+// ❌ WRONG - Inline types without reusability
+export const useCreateUser = () => {
+  return useMutation({
+    mutationFn: async (input: { name: string; email: string }) => {
+      // Types defined inline, not reusable
+    },
+  });
+};
+```
+
+## React 19 Specific Patterns
+
+### Component Patterns
+
+- **Function Components**: Always use function components (not class components)
+- **Type Props**: Define props interfaces/types for all components
+
+```typescript
+// ✅ CORRECT - Properly typed component props
+interface ButtonProps {
+  label: string;
+  onClick: () => void;
+  variant?: 'primary' | 'secondary';
+  disabled?: boolean;
+}
+
+export function Button({ label, onClick, variant = 'primary', disabled = false }: ButtonProps) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      className={`tw:px-4 tw:py-2 tw:rounded ${variant === 'primary' ? 'tw:bg-blue-500' : 'tw:bg-gray-500'}`}
+    >
+      {label}
+    </button>
+  );
+}
+```
+
+### Context Usage
+
+- **Always use context hooks** from `src/hooks/contexts/` instead of `useContext` directly
+- **Type context values** properly with interfaces
+
+```typescript
+// ✅ CORRECT - Using context hook
+import { useAuthContext } from '@/hooks/contexts/use-auth-context';
+
+export function UserProfile() {
+  const { user, logout } = useAuthContext();
+  // user is properly typed
+  return <div>{user?.name}</div>;
+}
+```
+
+## Summary Checklist
+
+When writing TypeScript code:
+
+- ✅ Always await promises or use `void` for fire-and-forget operations
+- ✅ Always use `async/await` when invalidating queries in hooks
+- ✅ Always use `??` instead of `||` for null/undefined checks (unless handling all falsy values)
+- ✅ Never use `any` type - use proper types or `unknown` with type guards
+- ✅ Always properly type mutations and queries using TypeScript generics
+- ✅ Define types for API requests and responses in shared locations
+- ✅ Use type guards with `unknown` when type narrowing is needed
+- ✅ Type all component props with interfaces/types
+- ✅ Use context hooks from `src/hooks/contexts/` instead of direct `useContext`

@@ -1,0 +1,82 @@
+---
+description: How to add or edit Cursor rules in our monorepo
+globs:
+alwaysApply: false
+---
+
+# Cursor Rules Location
+
+How to add new cursor rules to the project
+
+1. Always place rule files in PROJECT_ROOT/.cursor/rules/:
+
+   ```
+   .cursor/rules/
+   ├── your-rule-name.mdc
+   ├── another-rule.mdc
+   └── ...
+   ```
+
+2. Follow the naming convention:
+
+   - Use kebab-case for filenames
+   - Always use .mdc extension
+   - Make names descriptive of the rule's purpose
+   - **Prefix with package name** for package-specific rules (e.g., `frontend-hooks.mdc`, `backend-api.mdc`)
+
+3. Directory structure (monorepo):
+
+   ```
+   PROJECT_ROOT/
+   ├── .cursor/
+   │   └── rules/
+   │       ├── cursor-rules.mdc          # General rules
+   │       ├── frontend-hooks.mdc        # FE-specific rules
+   │       ├── frontend-file-structure.mdc
+   │       ├── backend-api.mdc           # BE-specific rules (future)
+   │       └── ...
+   ├── finance-poc-frontend/             # Frontend package
+   └── finance-poc-backend/              # Backend package (future)
+   ```
+
+4. Never place rule files:
+
+   - In the project root
+   - In subdirectories outside .cursor/rules
+   - In package-specific .cursor folders (use globs instead)
+
+5. Cursor rules have the following structure:
+
+````
+---
+description: Short description of the rule's purpose
+globs: package-name/**/*.{ts,tsx}
+alwaysApply: false
+---
+# Rule Title
+
+Main content explaining the rule with markdown formatting.
+
+1. Step-by-step instructions
+2. Code examples
+3. Guidelines
+
+Example:
+```typescript
+// Good example
+function goodExample() {
+  // Implementation following guidelines
+}
+
+// Bad example
+function badExample() {
+  // Implementation not following guidelines
+}
+```
+````
+
+6. Glob patterns for scoping rules:
+   - **Frontend only**: `finance-poc-frontend/**/*.{ts,tsx}`
+   - **Backend only**: `finance-poc-backend/**/*.{ts,go,py}` (adjust based on language)
+   - **All TypeScript**: `**/*.{ts,tsx}`
+   - **Always apply**: Set `alwaysApply: true` for rules that should always be active

@@ -1,0 +1,248 @@
+---
+description: File structure and organization rules for the frontend project
+globs: finance-poc-frontend/**/*.{js,ts,jsx,tsx}
+alwaysApply: false
+---
+
+# File Structure Rules
+
+**POC Best Practices**: For a proof-of-concept project, prioritize simplicity and speed of iteration. The structure below provides organization while remaining flexible for rapid development.
+
+## Naming Conventions
+
+### File Naming
+
+- **All files must use kebab-case**
+  - ✅ Correct: `user-profile.tsx`, `sign-in-form.tsx`, `use-auth.ts`
+  - ❌ Wrong: `UserProfile.tsx`, `signInForm.tsx`, `useAuth.ts`
+
+## Component Organization
+
+### Visual Components (`/components`)
+
+- **Location**: All visual components go in `src/components`
+- **Structure**: Each component must be in its own folder named after the component
+  - ✅ Correct: `src/components/button/button.tsx`
+  - ✅ Correct: `src/components/user-avatar/user-avatar.tsx`
+  - ❌ Wrong: `src/components/Button.tsx`
+  - ❌ Wrong: `src/components/button.tsx`
+- **Purpose**: Components under `/components` should **ONLY** be visual/presentational
+  - **NO business logic** allowed
+  - **NO API calls** allowed
+  - **NO state management** (beyond local UI state)
+  - These are pure presentational components that receive props and render UI
+
+Example:
+
+```tsx
+// ✅ Correct: /components/button/button.tsx
+interface ButtonProps {
+  label: string;
+  onClick: () => void;
+  variant?: "primary" | "secondary";
+}
+
+export function Button({ label, onClick, variant = "primary" }: ButtonProps) {
+  return (
+    <button
+      className={`tw:px-4 tw:py-2 tw:rounded ${
+        variant === "primary" ? "tw:bg-blue-500" : "tw:bg-gray-500"
+      }`}
+      onClick={onClick}
+    >
+      {label}
+    </button>
+  );
+}
+```
+
+### Complex Components (`/containers`)
+
+- **Location**: More complex components with business logic go in `src/containers`
+- **Structure**: Grouped by functionality/feature
+  - ✅ Correct: `src/containers/auth-flow/sign-in-form/sign-in-form.tsx`
+  - ✅ Correct: `src/containers/dashboard/user-settings/user-settings.tsx`
+  - ✅ Correct: `src/containers/payment-flow/checkout-form/checkout-form.tsx`
+- **Purpose**: These components can contain:
+  - Business logic
+  - API calls
+  - State management
+  - Data fetching
+  - Complex interactions
+
+Example:
+
+```tsx
+// ✅ Correct: src/containers/auth-flow/sign-in-form/sign-in-form.tsx
+import { useState } from "react";
+import { Button } from "~/components/button/button";
+import { useSignIn } from "~/hooks/auth/use-sign-in";
+
+export function SignInForm() {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const { mutateAsync: signIn } = useSignIn();
+
+  const handleSubmit = async () => {
+    await signIn({ email, password });
+  };
+
+  return <form onSubmit={handleSubmit}>{/* Form implementation */}</form>;
+}
+```
+
+## Other Directories
+
+### Contexts (`/contexts`)
+
+- **Location**: All React contexts go in `src/contexts`
+- **Naming**: Use kebab-case
+  - ✅ Correct: `src/contexts/auth-context.tsx`
+  - ✅ Correct: `src/contexts/theme-context.tsx`
+  - ❌ Wrong: `src/contexts/AuthContext.tsx`
+- **Structure**: Each context should export:
+  - Type definitions for the context value
+  - The context itself (created with `React.createContext`)
+  - A Provider component
+  - Context hooks should be in `src/hooks/contexts/` (see `frontend-hooks.mdc`)
+
+Example:
+
+```tsx
+// ✅ Correct: src/contexts/auth-context.tsx
+import * as React from "react";
+
+export interface AuthContextValue {
+  user: User | null;
+  login: (email: string, password: string) => Promise<void>;
+  logout: () => void;
+  isAuthenticated: boolean;
+}
+
+export const AuthContext = React.createContext<AuthContextValue | undefined>(
+  undefined
+);
+
+export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const [user, setUser] = React.useState<User | null>(null);
+
+  const login = async (email: string, password: string) => {
+    // Login logic
+  };
+
+  const logout = () => {
+    setUser(null);
+  };
+
+  const value: AuthContextValue = {
+    user,
+    login,
+    logout,
+    isAuthenticated: !!user,
+  };
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+}
+```
+
+### Hooks (`/hooks`)
+
+- **Location**: All custom hooks go in `/hooks`
+- **Naming**: Use kebab-case with `use-` prefix
+  - ✅ Correct: `src/hooks/use-auth.ts`
+  - ✅ Correct: `src/hooks/use-local-storage.ts`
+  - ❌ Wrong: `src/hooks/useAuth.ts`
+  - ❌ Wrong: `src/hooks/UseAuth.ts`
+- **See `frontend-hooks.mdc`** for detailed hook organization rules
+
+## Styling
+
+- **Styling must be done with Tailwind CSS**
+- **Follow the rules defined in `frontend-tailwind-css-v4.mdc`**
+- **Use the `tw:` prefix** for all Tailwind classes as specified in the Tailwind v4 rules
+- **Tailwind is configured via Vite plugin** (`@tailwindcss/vite`) - no PostCSS config needed
+- **Main CSS file**: `src/app.css` contains the Tailwind import with prefix
+
+## Vite-Specific Notes
+
+- **Path Aliases**: Use `@/` prefix for imports from `src/` directory
+
+  - Configure in `vite.config.ts` and `tsconfig.app.json` if not already set up:
+
+  ```typescript
+  // vite.config.ts
+  import { defineConfig } from "vite";
+  import path from "path";
+
+  export default defineConfig({
+    resolve: {
+      alias: {
+        "@": path.resolve(__dirname, "./src"),
+      },
+    },
+  });
+  ```
+
+  ```json
+  // tsconfig.app.json
+  {
+    "compilerOptions": {
+      "baseUrl": ".",
+      "paths": {
+        "@/*": ["./src/*"]
+      }
+    }
+  }
+  ```
+
+- **Hot Module Replacement (HMR)**: Works automatically with Vite - no special configuration needed
+- **TypeScript**: Configured via `tsconfig.app.json` - uses strict mode by default
+- **Build**: Run `pnpm build` or `npm run build` to create production build in `dist/` directory
+- **Development Server**: Run `pnpm dev` or `npm run dev` - typically runs on `http://localhost:5173`
+
+## Summary
+
+```
+src/
+├── components/           # Visual components only (NO business logic)
+│   ├── button/
+│   │   └── button.tsx
+│   ├── user-avatar/
+│   │   └── user-avatar.tsx
+│   └── card/
+│       └── card.tsx
+├── containers/          # Complex components with business logic
+│   ├── auth-flow/
+│   │   └── sign-in-form/
+│   │       └── sign-in-form.tsx
+│   └── dashboard/
+│       └── user-settings/
+│           └── user-settings.tsx
+├── contexts/           # React contexts
+│   ├── auth-context.tsx
+│   └── theme-context.tsx
+├── hooks/              # Custom hooks with API calls (see frontend-hooks.mdc)
+│   ├── contexts/
+│   │   └── use-auth-context.ts
+│   ├── user/
+│   │   ├── use-get-user.ts
+│   │   ├── use-create-user.ts
+│   │   └── use-list-users.ts
+│   └── use-local-storage.ts
+└── types/              # TypeScript type definitions (optional)
+    ├── user.ts
+    └── transaction.ts
+```
+
+## Rules Checklist
+
+- [ ] All files use kebab-case naming
+- [ ] Components are in their own folders (`component-name/component-name.tsx`)
+- [ ] `src/components` contains only visual components (no business logic)
+- [ ] Complex components with business logic are in `src/containers` grouped by feature
+- [ ] Contexts are in `src/contexts` directory
+- [ ] Hooks are in `src/hooks` directory (see `frontend-hooks.mdc` for organization)
+- [ ] API calls are made directly within hooks (no separate service layer)
+- [ ] Styling uses Tailwind CSS with `tw:` prefix following `frontend-tailwind-css-v4.mdc`
+- [ ] Contexts export Provider components and types (hooks are in `src/hooks/contexts/`)
+- [ ] Vite-specific features (HMR, path aliases) are used appropriately

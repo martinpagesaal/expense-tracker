@@ -1,0 +1,455 @@
+---
+description: Mandatory rules for creating and organizing React hooks in the frontend application
+globs: finance-poc-frontend/**/*.{ts,tsx}
+alwaysApply: false
+---
+
+# Hooks Rules
+
+**MANDATORY**: All hooks must follow these conventions. This is a strict organizational rule that must be enforced.
+
+**NOTE**: This project uses `@tanstack/react-query` for data fetching. Ensure React Query is installed and configured before using these hooks.
+
+## Directory Organization
+
+### Structure
+
+Hooks are organized in a hierarchical structure:
+
+- **`src/hooks/`** - Root level for utility hooks (e.g., `use-breadcrumbs.ts`)
+- **`src/hooks/contexts/`** - Context hooks (hooks that access React contexts)
+- **`src/hooks/{domain}/`** - Domain-specific API hooks organized by model/entity
+
+### Domain Subfolders
+
+API hooks are organized by domain/model in subfolders:
+
+- `src/hooks/user/` - User-related hooks (e.g., `use-create-user.ts`, `use-get-user.ts`, `use-list-users.ts`, `use-update-user.ts`)
+- `src/hooks/transaction/` - Transaction-related hooks (e.g., `use-create-transaction.ts`, `use-get-transaction.ts`, `use-list-transactions.ts`)
+- `src/hooks/account/` - Account-related hooks (e.g., `use-create-account.ts`, `use-get-account.ts`, `use-list-accounts.ts`)
+
+### Import Rules
+
+**CRITICAL**: Always import hooks from their correct location:
+
+```typescript
+// ✅ CORRECT - Import from domain subfolder
+import { useGetUser } from '@/hooks/user/use-get-user';
+import { useListTransactions } from '@/hooks/transaction/use-list-transactions';
+import { useCreateAccount } from '@/hooks/account/use-create-account';
+
+// ✅ CORRECT - Import context hooks
+import { useAuthContext } from '@/hooks/contexts/use-auth-context';
+
+// ✅ CORRECT - Import utility hooks from root
+import { useBreadcrumbs } from '@/hooks/use-breadcrumbs';
+
+// ❌ WRONG - Don't import from old flat structure
+import { useGetUser } from '@/hooks/use-get-user';
+```
+
+## Context Hooks
+
+### Purpose
+
+Context hooks are hooks that access React contexts defined in `src/contexts/`.
+
+### Location
+
+All context hooks are located in `src/hooks/contexts/`.
+
+### Rules
+
+- **Hook name must match file name** (e.g., `use-auth-context.ts` exports `useAuthContext`)
+- **Import context** from the corresponding context file in `src/contexts/`
+- **Implement simple hook pattern** that uses `React.useContext` and throws error if context is undefined
+- **Export only the hook** (not types or context)
+- **DO NOT** import from other context files (import hooks from hook files instead)
+
+### Example Structure
+
+```
+src/hooks/contexts/
+├── use-auth-context.ts         # Exports useAuthContext
+├── use-user-context.ts         # Exports useUserContext
+├── use-theme-context.ts        # Exports useThemeContext
+└── use-breadcrumb-context.ts   # Exports useBreadcrumbContext
+```
+
+### Example Context Hook File
+
+```typescript
+// src/hooks/contexts/use-auth-context.ts
+import * as React from 'react';
+
+import { AuthContext } from '@/contexts/auth-context';
+
+export const useAuthContext = () => {
+  const context = React.useContext(AuthContext);
+  if (!context) {
+    throw new Error('useAuthContext must be used within an AuthProvider');
+  }
+  return context;
+};
+```
+
+### Context Hook Import Rules
+
+```typescript
+// ✅ CORRECT - Import from hook file
+import { useAuthContext } from '@/hooks/contexts/use-auth-context';
+import { useThemeContext } from '@/hooks/contexts/use-theme-context';
+
+// ❌ WRONG - Import from context file
+import { useAuth } from '@/contexts/auth-context';
+```
+
+**CRITICAL**:
+
+- Hook name must match file name pattern (`use-xx-context.ts` → `useXxContext`)
+- Hook files should only export the hook function
+- Hook files import context from context files, not from other hook files
+- Context files (`src/contexts/`) define types, create context, and export Provider (NOT hooks)
+
+## Naming Conventions
+
+### File Naming
+
+- **MUST** start with `use-` prefix
+- Use kebab-case for file names
+- File name must match the hook name exactly
+
+### Hook Naming Patterns
+
+1. **`use-get-*`** - Single item fetch hooks
+   - Example: `use-get-user.ts`, `use-get-transaction.ts`
+   - Returns a single entity by ID or unique identifier
+   - Uses `useQuery` from `@tanstack/react-query`
+
+2. **`use-create-*`** - Create mutation hooks
+   - Example: `use-create-user.ts`, `use-create-transaction.ts`
+   - Creates a new entity
+   - Uses `useMutation` from `@tanstack/react-query`
+
+3. **`use-update-*`** - Update mutation hooks
+   - Example: `use-update-user.ts`, `use-update-transaction.ts`
+   - Updates an existing entity
+   - Uses `useMutation` from `@tanstack/react-query`
+
+4. **`use-list-*`** - List/collection fetch hooks
+   - Example: `use-list-users.ts`, `use-list-transactions.ts`
+   - Returns an array of entities
+   - Uses `useQuery` from `@tanstack/react-query`
+
+## Structure Requirements
+
+### Single Hook Per File
+
+- **MUST** export exactly one hook per file
+- Hook name must match the file name (without extension)
+- Example: `use-get-user.ts` exports `useGetUser`
+
+```typescript
+// ✅ Good: use-get-user.ts
+export const useGetUser = (...) => { ... };
+
+// ❌ Bad: Multiple hooks in one file
+export const useGetUser = (...) => { ... };
+export const useGetUserById = (...) => { ... };
+```
+
+### React Query Wrapper
+
+- **MUST** wrap all API calls with `useQuery` or `useMutation` from `@tanstack/react-query`
+- Never make direct API calls outside of React Query hooks
+
+```typescript
+// ✅ Good
+import { useQuery } from '@tanstack/react-query';
+
+export const useGetUser = (id: string) => {
+  return useQuery({
+    queryKey: ['user', id],
+    queryFn: async () => {
+      const response = await fetch(`/api/users/${id}`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch user');
+      }
+      return response.json();
+    },
+  });
+};
+
+// ❌ Bad: Direct API call without React Query
+export const useGetUser = (id: string) => {
+  const [user, setUser] = useState(null);
+  useEffect(() => {
+    fetchUser(id).then(setUser);
+  }, [id]);
+  return user;
+};
+```
+
+## Type Usage
+
+### API Types
+
+- Define types for API requests and responses in a types file or alongside the hook
+- Use TypeScript interfaces/types for all API data structures
+- Prefer defining types in a shared location (e.g., `src/types/` or `src/api/types.ts`) when reused
+
+```typescript
+// ✅ Good: Using defined types
+import type { User, CreateUserInput } from '@/types/user';
+
+export const useCreateUser = () => {
+  return useMutation({
+    mutationFn: async (input: CreateUserInput): Promise<User> => {
+      const response = await fetch('/api/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(input),
+      });
+      if (!response.ok) {
+        throw new Error('Failed to create user');
+      }
+      return response.json();
+    },
+  });
+};
+
+// ❌ Bad: Using any type
+export const useCreateUser = () => {
+  return useMutation({
+    mutationFn: async (input: any): Promise<any> => {
+      // Never use any
+    },
+  });
+};
+```
+
+## Query Keys
+
+### Consistent Patterns
+
+- Use consistent query key patterns for cache management
+- Include relevant parameters in query keys
+
+```typescript
+// ✅ Good: Consistent query key patterns
+queryKey: ['user', userId]; // Single item by identifier
+queryKey: ['transaction', id]; // Single item by ID
+queryKey: ['listUsers', params]; // List with params
+queryKey: ['listTransactions', { accountId, dateRange }]; // List with params
+```
+
+### Cache Invalidation
+
+- Use `useQueryClient` to invalidate related queries after mutations
+- Always use `async/await` when invalidating queries
+- Invalidate both single item and list queries when appropriate
+
+```typescript
+// ✅ Good: Invalidating related queries
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+
+export const useUpdateUser = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (input: UpdateUserInput): Promise<User> => {
+      const response = await fetch(`/api/users/${input.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(input),
+      });
+      if (!response.ok) {
+        throw new Error('Failed to update user');
+      }
+      return response.json();
+    },
+    onSuccess: async (data) => {
+      // Invalidate related queries
+      await queryClient.invalidateQueries({ queryKey: ['user', data.id] });
+      await queryClient.invalidateQueries({ queryKey: ['listUsers'] });
+    },
+  });
+};
+```
+
+## Error Handling
+
+### Consistent Error Patterns
+
+- Always check for HTTP errors (response.ok)
+- Provide meaningful error messages
+- Let React Query handle error states
+
+```typescript
+// ✅ Good: Consistent error handling
+export const useGetUser = (id: string) => {
+  return useQuery({
+    queryKey: ['user', id],
+    queryFn: async (): Promise<User> => {
+      const response = await fetch(`/api/users/${id}`);
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({}));
+        throw new Error(
+          error.message || `Failed to fetch user: ${response.statusText}`,
+        );
+      }
+
+      return response.json();
+    },
+    retry: 1,
+  });
+};
+```
+
+## Examples
+
+### Complete Hook Examples
+
+#### Get Hook (use-get-user.ts)
+
+```typescript
+// ✅ Good: Complete get hook example
+import { useQuery, type UseQueryResult } from '@tanstack/react-query';
+import type { User } from '@/types/user';
+
+export const useGetUser = (
+  id: string | null,
+  options?: { enabled?: boolean },
+): UseQueryResult<User | null, Error> => {
+  return useQuery({
+    queryKey: ['user', id],
+    enabled: !!id && (options?.enabled ?? true),
+    queryFn: async (): Promise<User | null> => {
+      if (!id) {
+        throw new Error('User ID is required');
+      }
+      const response = await fetch(`/api/users/${id}`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch user');
+      }
+      return response.json();
+    },
+    retry: 1,
+  });
+};
+```
+
+#### Create Hook (use-create-user.ts)
+
+```typescript
+// ✅ Good: Complete create hook example
+import { useMutation, type UseMutationResult } from '@tanstack/react-query';
+import type { User, CreateUserInput } from '@/types/user';
+
+export const useCreateUser = (): UseMutationResult<
+  User,
+  Error,
+  CreateUserInput
+> => {
+  return useMutation({
+    mutationFn: async (input: CreateUserInput): Promise<User> => {
+      if (!input.name || !input.email) {
+        throw new Error('Name and email are required');
+      }
+      const response = await fetch('/api/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(input),
+      });
+      if (!response.ok) {
+        throw new Error('Failed to create user');
+      }
+      return response.json();
+    },
+    onError: (error) => {
+      console.error('Failed to create user:', error);
+    },
+  });
+};
+```
+
+#### List Hook (use-list-users.ts)
+
+```typescript
+// ✅ Good: Complete list hook example
+import { useQuery, type UseQueryResult } from '@tanstack/react-query';
+import type { User } from '@/types/user';
+
+interface ListUsersParams {
+  page?: number;
+  limit?: number;
+  search?: string;
+}
+
+export const useListUsers = (
+  params: ListUsersParams = {},
+): UseQueryResult<User[], Error> => {
+  return useQuery({
+    queryKey: ['listUsers', params],
+    queryFn: async (): Promise<User[]> => {
+      const searchParams = new URLSearchParams();
+      if (params.page) searchParams.set('page', String(params.page));
+      if (params.limit) searchParams.set('limit', String(params.limit));
+      if (params.search) searchParams.set('search', params.search);
+
+      const response = await fetch(`/api/users?${searchParams.toString()}`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch users');
+      }
+      return response.json();
+    },
+  });
+};
+```
+
+#### Update Hook (use-update-user.ts)
+
+```typescript
+// ✅ Good: Complete update hook example
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import type { User, UpdateUserInput } from '@/types/user';
+
+export const useUpdateUser = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (input: UpdateUserInput): Promise<User> => {
+      const response = await fetch(`/api/users/${input.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(input),
+      });
+      if (!response.ok) {
+        throw new Error('Failed to update user');
+      }
+      return response.json();
+    },
+    onSuccess: async (data) => {
+      // Invalidate related queries
+      await queryClient.invalidateQueries({ queryKey: ['user', data.id] });
+      await queryClient.invalidateQueries({ queryKey: ['listUsers'] });
+    },
+  });
+};
+```
+
+## Summary Checklist
+
+When creating a new hook, ensure:
+
+- ✅ File name starts with `use-` and matches hook name
+- ✅ Uses correct naming pattern (`use-get-*`, `use-create-*`, `use-update-*`, `use-list-*`)
+- ✅ Exports exactly one hook with matching name
+- ✅ Wraps API calls with `useQuery` or `useMutation`
+- ✅ Uses proper TypeScript types (no `any`)
+- ✅ API calls are made directly within the hook (no separate service layer)
+- ✅ Uses consistent query key patterns
+- ✅ Implements proper error handling
+- ✅ Uses `async/await` when invalidating queries after mutations
+- ✅ Invalidates related queries after mutations (when applicable)
