@@ -1,6 +1,7 @@
-import * as React from "react";
-import type { User, Session } from "@supabase/supabase-js";
-import { supabase } from "@/lib/supabase";
+import type { Session, User } from '@supabase/supabase-js';
+import * as React from 'react';
+
+import { supabase } from '@/lib/supabase';
 
 export interface AuthContextValue {
   user: User | null;
@@ -9,9 +10,7 @@ export interface AuthContextValue {
   isAuthenticated: boolean;
 }
 
-export const AuthContext = React.createContext<AuthContextValue | undefined>(
-  undefined
-);
+export const AuthContext = React.createContext<AuthContextValue | undefined>(undefined);
 
 interface AuthProviderProps {
   children: React.ReactNode;

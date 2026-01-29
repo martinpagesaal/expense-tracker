@@ -1,0 +1,142 @@
+---
+description: ESLint and Prettier configuration for code formatting, linting, and import sorting
+globs: frontend/**/*.{ts,tsx,js,css}
+alwaysApply: false
+---
+
+# Linting and Formatting Rules
+
+**MANDATORY**: All code must follow these formatting and linting standards.
+
+## Tools Configuration
+
+The frontend uses:
+
+- **ESLint 9** with flat config for linting
+- **Prettier** for code formatting
+- **eslint-plugin-simple-import-sort** for import sorting
+- **prettier-plugin-tailwindcss** for Tailwind class sorting
+
+## Code Style
+
+### Single Quotes
+
+**CRITICAL**: Always use single quotes for strings.
+
+```typescript
+// ✅ CORRECT
+const name = 'John';
+import { useState } from 'react';
+
+// ❌ WRONG
+const name = "John";
+import { useState } from "react";
+```
+
+### Semicolons
+
+**CRITICAL**: Always include semicolons at the end of statements.
+
+```typescript
+// ✅ CORRECT
+const name = 'John';
+const age = 30;
+
+// ❌ WRONG
+const name = 'John'
+const age = 30
+```
+
+### Import Sorting
+
+**CRITICAL**: Imports are automatically sorted. The order is:
+
+1. Side-effect imports (e.g., `import './styles.css'`)
+2. Node built-ins (e.g., `import path from 'path'`)
+3. External packages (e.g., `import { useState } from 'react'`)
+4. Internal aliases (e.g., `import { Button } from '@/components/button'`)
+5. Relative imports (e.g., `import { helper } from './utils'`)
+
+```typescript
+// ✅ CORRECT - Sorted imports
+import { useEffect, useState } from 'react';
+
+import { useQuery } from '@tanstack/react-query';
+
+import { Button } from '@/components/button';
+import { useAuthContext } from '@/hooks/contexts/use-auth-context';
+
+import { formatDate } from './utils';
+import './styles.css';
+
+// ❌ WRONG - Unsorted imports
+import { formatDate } from './utils';
+import { useState, useEffect } from 'react';
+import { Button } from '@/components/button';
+import { useQuery } from '@tanstack/react-query';
+```
+
+### Tailwind Class Sorting
+
+Tailwind classes are automatically sorted by Prettier. The plugin follows Tailwind's recommended order (layout → typography → decoration → states).
+
+```typescript
+// ✅ CORRECT - Classes are auto-sorted
+<div className="tw:flex tw:items-center tw:gap-4 tw:rounded-lg tw:bg-white tw:p-4 tw:shadow-md hover:tw:shadow-lg" />
+
+// ❌ WRONG - Random class order (will be auto-fixed)
+<div className="tw:shadow-md tw:p-4 tw:flex tw:bg-white tw:rounded-lg tw:gap-4 tw:items-center" />
+```
+
+## NPM Scripts
+
+Use these scripts for linting and formatting:
+
+```bash
+# Check for linting errors
+pnpm lint
+
+# Auto-fix all linting and formatting issues
+pnpm lint:fix
+
+# Format all files with Prettier
+pnpm format
+
+# Check if files are properly formatted
+pnpm format:check
+```
+
+## Editor Setup
+
+For auto-formatting on save, ensure VS Code/Cursor has these settings:
+
+```json
+{
+  "editor.formatOnSave": true,
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
+  "editor.codeActionsOnSave": {
+    "source.fixAll.eslint": "explicit"
+  }
+}
+```
+
+## Formatting Rules Summary
+
+| Rule | Value |
+|------|-------|
+| Quotes | Single (`'`) |
+| Semicolons | Always |
+| Tab Width | 2 spaces |
+| Trailing Commas | ES5 (objects, arrays) |
+| Print Width | 100 characters |
+| Tailwind Classes | Auto-sorted |
+| Imports | Auto-sorted |
+
+## Pre-commit Checklist
+
+Before committing code:
+
+- ✅ Run `pnpm lint:fix` to fix all auto-fixable issues
+- ✅ Ensure no linting errors remain
+- ✅ Verify imports are properly sorted
+- ✅ Check that strings use single quotes
