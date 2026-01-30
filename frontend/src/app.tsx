@@ -18,8 +18,8 @@ function App() {
     return (
       <div className="tw:flex tw:items-center tw:justify-center tw:min-h-[50vh] tw:px-6">
         <div className="tw:text-gray-600 tw:text-center">
-          Falta configurar Supabase. Define `VITE_SUPABASE_URL` y
-          `VITE_SUPABASE_PUBLISHABLE_KEY` y vuelve a desplegar.
+          Falta configurar Supabase. Define `VITE_SUPABASE_URL` y `VITE_SUPABASE_PUBLISHABLE_KEY` y
+          vuelve a desplegar.
         </div>
       </div>
     );
