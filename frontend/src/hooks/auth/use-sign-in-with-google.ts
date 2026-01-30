@@ -9,8 +9,12 @@ interface SignInWithGoogleResult {
 export const useSignInWithGoogle = (): UseMutationResult<SignInWithGoogleResult, Error, void> => {
   return useMutation({
     mutationFn: async (): Promise<SignInWithGoogleResult> => {
+      const redirectTo = new URL(import.meta.env.VITE_BASE_URL, window.location.origin).toString();
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
+        options: {
+          redirectTo,
+        },
       });
 
       if (error) {
