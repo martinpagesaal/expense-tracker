@@ -12,7 +12,18 @@ import { NewExpensePage } from '@/pages/new-expense-page';
 import { SummaryPage } from '@/pages/summary-page';
 
 function App() {
-  const { isLoading, isAuthenticated } = useAuthContext();
+  const { isLoading, isAuthenticated, isSupabaseConfigured } = useAuthContext();
+
+  if (!isSupabaseConfigured) {
+    return (
+      <div className="tw:flex tw:items-center tw:justify-center tw:min-h-[50vh] tw:px-6">
+        <div className="tw:text-gray-600 tw:text-center">
+          Falta configurar Supabase. Define `VITE_SUPABASE_URL` y
+          `VITE_SUPABASE_PUBLISHABLE_KEY` y vuelve a desplegar.
+        </div>
+      </div>
+    );
+  }
 
   if (isLoading) {
     return (
