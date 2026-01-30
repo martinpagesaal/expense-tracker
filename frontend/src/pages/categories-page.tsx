@@ -4,16 +4,16 @@ import {
   Card,
   Group,
   Modal,
-  Tabs,
   Select,
   Stack,
+  Tabs,
   Text,
   TextInput,
   Title,
 } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
-import * as React from 'react';
 import { IconPencil } from '@tabler/icons-react';
+import * as React from 'react';
 
 import { useTenant } from '@/hooks/app/use-tenant';
 import {
@@ -60,7 +60,9 @@ export const CategoriesPage = () => {
   const [subcategoryCategoryId, setSubcategoryCategoryId] = React.useState<string | null>(null);
   const [editingCategory, setEditingCategory] = React.useState<Category | null>(null);
   const [editingSubcategory, setEditingSubcategory] = React.useState<Subcategory | null>(null);
-  const [editingPaymentMethod, setEditingPaymentMethod] = React.useState<PaymentMethod | null>(null);
+  const [editingPaymentMethod, setEditingPaymentMethod] = React.useState<PaymentMethod | null>(
+    null
+  );
   const [editCategoryName, setEditCategoryName] = React.useState('');
   const [editSubcategoryName, setEditSubcategoryName] = React.useState('');
   const [editPaymentMethodName, setEditPaymentMethodName] = React.useState('');

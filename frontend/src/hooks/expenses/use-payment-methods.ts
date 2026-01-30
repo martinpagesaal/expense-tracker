@@ -1,6 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-import { createPaymentMethod, fetchPaymentMethods, updatePaymentMethod } from '@/lib/supabase-queries';
+import {
+  createPaymentMethod,
+  fetchPaymentMethods,
+  updatePaymentMethod,
+} from '@/lib/supabase-queries';
 
 export const usePaymentMethods = (tenantId?: string) => {
   return useQuery({

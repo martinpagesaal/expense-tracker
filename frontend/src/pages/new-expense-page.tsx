@@ -293,11 +293,7 @@ export const NewExpensePage = () => {
               <Text fw={500} size="sm">
                 Método de pago
               </Text>
-              <Button
-                size="xs"
-                variant="light"
-                onClick={() => setIsPaymentMethodModalOpen(true)}
-              >
+              <Button size="xs" variant="light" onClick={() => setIsPaymentMethodModalOpen(true)}>
                 Agregar
               </Button>
             </Group>

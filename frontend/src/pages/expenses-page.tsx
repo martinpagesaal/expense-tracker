@@ -11,13 +11,13 @@ import {
   Stack,
   Table,
   Text,
-  TextInput,
   Textarea,
+  TextInput,
   Title,
 } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
-import * as React from 'react';
 import { IconPencil } from '@tabler/icons-react';
+import * as React from 'react';
 
 import { useTenant } from '@/hooks/app/use-tenant';
 import { useAuthContext } from '@/hooks/contexts/use-auth-context';
@@ -98,7 +98,10 @@ export const ExpensesPage = () => {
   );
 
   const editCurrencyOptions = React.useMemo(() => {
-    if (editingExpense && !currencyOptions.some((option) => option.value === editingExpense.currency_code)) {
+    if (
+      editingExpense &&
+      !currencyOptions.some((option) => option.value === editingExpense.currency_code)
+    ) {
       return [
         ...currencyOptions,
         { value: editingExpense.currency_code, label: editingExpense.currency_code },
@@ -273,7 +276,8 @@ export const ExpensesPage = () => {
                     'Sin categoría';
                   const subcategoryName =
                     expense.subcategory?.name ||
-                    subcategories.find((subcategory) => subcategory.id === expense.subcategory_id)?.name ||
+                    subcategories.find((subcategory) => subcategory.id === expense.subcategory_id)
+                      ?.name ||
                     '';
                   const paymentMethodName =
                     expense.payment_method?.name ||

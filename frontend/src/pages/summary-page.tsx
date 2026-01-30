@@ -60,15 +60,13 @@ export const SummaryPage = () => {
         expense.category?.name ||
         categories.find((category) => category.id === categoryId)?.name ||
         'Sin categoría';
-      const categoryEntry =
-        categoryMap.get(categoryId) ||
-        {
-          categoryId,
-          categoryName,
-          totalUsd: 0,
-          totalArs: 0,
-          subcategories: new Map(),
-        };
+      const categoryEntry = categoryMap.get(categoryId) || {
+        categoryId,
+        categoryName,
+        totalUsd: 0,
+        totalArs: 0,
+        subcategories: new Map(),
+      };
 
       categoryEntry.totalUsd += expense.amount_usd;
       categoryEntry.totalArs += expense.amount_ars;
@@ -90,7 +88,9 @@ export const SummaryPage = () => {
       categoryMap.set(categoryId, categoryEntry);
     });
 
-    return Array.from(categoryMap.values()).sort((a, b) => a.categoryName.localeCompare(b.categoryName));
+    return Array.from(categoryMap.values()).sort((a, b) =>
+      a.categoryName.localeCompare(b.categoryName)
+    );
   }, [expenses, categories, subcategories]);
 
   const totalUsd = expenses.reduce((total, expense) => total + expense.amount_usd, 0);
