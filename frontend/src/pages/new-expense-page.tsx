@@ -21,12 +21,17 @@ import {
   useCreateSubcategory,
 } from '@/hooks/expenses/use-categories';
 import { useCreateExpense } from '@/hooks/expenses/use-create-expense';
+import { useCreatePaymentMethod, usePaymentMethods } from '@/hooks/expenses/use-payment-methods';
 
 const currencyOptions = [
   { value: 'USD', label: 'USD · Dólar' },
   { value: 'ARS', label: 'ARS · Peso argentino' },
   { value: 'BRL', label: 'BRL · Real brasileño' },
 ];
+
+const DEFAULT_CURRENCY = 'ARS';
+const LOCAL_STORAGE_CURRENCY_KEY = 'expense.lastCurrency';
+const LOCAL_STORAGE_PAYMENT_METHOD_KEY = 'expense.lastPaymentMethod';
 
 export const NewExpensePage = () => {
   const { data: tenantUser } = useTenant();
@@ -36,23 +41,55 @@ export const NewExpensePage = () => {
   );
   const { mutateAsync: createCategory } = useCreateCategory(tenantUser?.tenant_id);
   const { mutateAsync: createSubcategory } = useCreateSubcategory(tenantUser?.tenant_id);
+  const { data: paymentMethods = [] } = usePaymentMethods(tenantUser?.tenant_id);
+  const { mutateAsync: createPaymentMethod, isPending: isCreatingPaymentMethod } =
+    useCreatePaymentMethod(tenantUser?.tenant_id);
 
   const [categoryId, setCategoryId] = React.useState<string | null>(null);
   const [subcategoryId, setSubcategoryId] = React.useState<string | null>(null);
+  const [paymentMethodId, setPaymentMethodId] = React.useState<string | null>(null);
+  const [expenseDate, setExpenseDate] = React.useState<string>(
+    new Date().toISOString().slice(0, 10)
+  );
   const [amount, setAmount] = React.useState<number | ''>('');
-  const [currencyCode, setCurrencyCode] = React.useState<string | null>('USD');
+  const [currencyCode, setCurrencyCode] = React.useState<string | null>(DEFAULT_CURRENCY);
   const [note, setNote] = React.useState('');
 
   const [isCategoryModalOpen, setIsCategoryModalOpen] = React.useState(false);
   const [isSubcategoryModalOpen, setIsSubcategoryModalOpen] = React.useState(false);
+  const [isPaymentMethodModalOpen, setIsPaymentMethodModalOpen] = React.useState(false);
   const [newCategoryName, setNewCategoryName] = React.useState('');
   const [newSubcategoryName, setNewSubcategoryName] = React.useState('');
+  const [newPaymentMethodName, setNewPaymentMethodName] = React.useState('');
 
   const categories = data?.categories ?? [];
   const subcategories = data?.subcategories ?? [];
   const subcategoriesForCategory = subcategories.filter(
     (subcategory) => subcategory.category_id === categoryId
   );
+
+  React.useEffect(() => {
+    const storedCurrency = window.localStorage.getItem(LOCAL_STORAGE_CURRENCY_KEY);
+    if (storedCurrency) {
+      setCurrencyCode(storedCurrency);
+    }
+    const storedPaymentMethod = window.localStorage.getItem(LOCAL_STORAGE_PAYMENT_METHOD_KEY);
+    if (storedPaymentMethod) {
+      setPaymentMethodId(storedPaymentMethod);
+    }
+  }, []);
+
+  React.useEffect(() => {
+    if (currencyCode) {
+      window.localStorage.setItem(LOCAL_STORAGE_CURRENCY_KEY, currencyCode);
+    }
+  }, [currencyCode]);
+
+  React.useEffect(() => {
+    if (paymentMethodId) {
+      window.localStorage.setItem(LOCAL_STORAGE_PAYMENT_METHOD_KEY, paymentMethodId);
+    }
+  }, [paymentMethodId]);
 
   const handleSaveExpense = async () => {
     if (!categoryId || !currencyCode || amount === '' || amount <= 0) {
@@ -66,6 +103,8 @@ export const NewExpensePage = () => {
     await createExpense({
       categoryId,
       subcategoryId,
+      paymentMethodId,
+      expenseDate,
       amount: Number(amount),
       currencyCode,
       note: note.trim() || undefined,
@@ -100,6 +139,17 @@ export const NewExpensePage = () => {
     setNewSubcategoryName('');
     setIsSubcategoryModalOpen(false);
     notifications.show({ message: 'Subcategoría agregada', color: 'green' });
+  };
+
+  const handleCreatePaymentMethod = async () => {
+    if (!newPaymentMethodName.trim()) {
+      return;
+    }
+    const method = await createPaymentMethod(newPaymentMethodName.trim());
+    setPaymentMethodId(method.id);
+    setNewPaymentMethodName('');
+    setIsPaymentMethodModalOpen(false);
+    notifications.show({ message: 'Método de pago agregado', color: 'green' });
   };
 
   return (
@@ -192,6 +242,12 @@ export const NewExpensePage = () => {
 
       <Card withBorder radius="md" padding="md">
         <Stack gap="sm">
+          <TextInput
+            type="date"
+            label="Fecha"
+            value={expenseDate}
+            onChange={(event) => setExpenseDate(event.currentTarget.value)}
+          />
           <NumberInput
             label="Monto"
             placeholder="0.00"
@@ -231,6 +287,45 @@ export const NewExpensePage = () => {
                 ))}
               </Group>
             </Chip.Group>
+          </Stack>
+          <Stack gap={6}>
+            <Group justify="space-between">
+              <Text fw={500} size="sm">
+                Método de pago
+              </Text>
+              <Button
+                size="xs"
+                variant="light"
+                onClick={() => setIsPaymentMethodModalOpen(true)}
+              >
+                Agregar
+              </Button>
+            </Group>
+            {paymentMethods.length === 0 ? (
+              <Text size="sm" c="dimmed">
+                No hay métodos de pago aún.
+              </Text>
+            ) : null}
+            {paymentMethods.length > 0 ? (
+              <Chip.Group
+                value={paymentMethodId}
+                onChange={(value) => {
+                  if (typeof value === 'string') {
+                    setPaymentMethodId(value);
+                  } else {
+                    setPaymentMethodId(null);
+                  }
+                }}
+              >
+                <Group gap="xs" wrap="wrap">
+                  {paymentMethods.map((method) => (
+                    <Chip key={method.id} value={method.id}>
+                      {method.name}
+                    </Chip>
+                  ))}
+                </Group>
+              </Chip.Group>
+            ) : null}
           </Stack>
           <Textarea
             label="Notas"
@@ -277,6 +372,24 @@ export const NewExpensePage = () => {
             onChange={(event) => setNewSubcategoryName(event.currentTarget.value)}
           />
           <Button onClick={handleCreateSubcategory} disabled={!categoryId}>
+            Guardar
+          </Button>
+        </Stack>
+      </Modal>
+      <Modal
+        opened={isPaymentMethodModalOpen}
+        onClose={() => setIsPaymentMethodModalOpen(false)}
+        title="Nuevo método de pago"
+        centered
+      >
+        <Stack>
+          <TextInput
+            label="Nombre"
+            placeholder="Ej. Tarjeta VISA Macro"
+            value={newPaymentMethodName}
+            onChange={(event) => setNewPaymentMethodName(event.currentTarget.value)}
+          />
+          <Button onClick={handleCreatePaymentMethod} loading={isCreatingPaymentMethod}>
             Guardar
           </Button>
         </Stack>

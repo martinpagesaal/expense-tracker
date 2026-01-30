@@ -1,4 +1,6 @@
 import { AppShell, Avatar, Button, Group, Stack, Text } from '@mantine/core';
+import { useMediaQuery } from '@mantine/hooks';
+import { IconCategory, IconChartPie, IconHome, IconPlus, IconReceipt } from '@tabler/icons-react';
 import type { ReactNode } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 
@@ -10,16 +12,18 @@ type MainLayoutProps = {
 };
 
 const navItems = [
-  { label: 'Inicio', to: '/' },
-  { label: 'Gastos', to: '/gastos' },
-  { label: 'Nuevo', to: '/nuevo' },
-  { label: 'Categorías', to: '/categorias' },
+  { label: 'Inicio', to: '/', icon: IconHome },
+  { label: 'Gastos', to: '/gastos', icon: IconReceipt },
+  { label: 'Nuevo', to: '/nuevo', icon: IconPlus },
+  { label: 'Resumen', to: '/resumen', icon: IconChartPie },
+  { label: 'Categorías', to: '/categorias', icon: IconCategory },
 ];
 
 export const MainLayout = ({ children }: MainLayoutProps) => {
   const { user } = useAuthContext();
   const { mutate: signOut, isPending } = useSignOut();
   const location = useLocation();
+  const isCompact = useMediaQuery('(max-width: 480px)');
 
   return (
     <AppShell header={{ height: 64 }} footer={{ height: 72 }} padding="md">
@@ -52,6 +56,7 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
         <Group justify="space-around" h="100%" px="md">
           {navItems.map((item) => {
             const isActive = location.pathname === item.to;
+            const Icon = item.icon;
             return (
               <Button
                 key={item.to}
@@ -59,8 +64,11 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
                 to={item.to}
                 variant={isActive ? 'filled' : 'subtle'}
                 size="sm"
+                leftSection={<Icon size={18} />}
+                aria-label={item.label}
+                px={isCompact ? 'xs' : 'sm'}
               >
-                {item.label}
+                {isCompact ? null : item.label}
               </Button>
             );
           })}

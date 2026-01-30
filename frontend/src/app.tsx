@@ -9,6 +9,7 @@ import { CategoriesPage } from '@/pages/categories-page';
 import { DashboardPage } from '@/pages/dashboard-page';
 import { ExpensesPage } from '@/pages/expenses-page';
 import { NewExpensePage } from '@/pages/new-expense-page';
+import { SummaryPage } from '@/pages/summary-page';
 
 function App() {
   const { isLoading, isAuthenticated } = useAuthContext();
@@ -30,6 +31,7 @@ function App() {
       <Routes>
         <Route path="/" element={<DashboardPage />} />
         <Route path="/gastos" element={<ExpensesPage />} />
+        <Route path="/resumen" element={<SummaryPage />} />
         <Route path="/categorias" element={<CategoriesPage />} />
         <Route path="/nuevo" element={<NewExpensePage />} />
         <Route path="*" element={<Navigate to="/" replace />} />

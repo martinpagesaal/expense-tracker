@@ -1,12 +1,13 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 
-import { createExpense } from '@/lib/supabase-queries';
+import { updateExpense } from '@/lib/supabase-queries';
 
-export const useCreateExpense = (tenantId?: string) => {
+export const useUpdateExpense = (tenantId?: string) => {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async ({
+      expenseId,
       categoryId,
       subcategoryId,
       paymentMethodId,
@@ -15,6 +16,7 @@ export const useCreateExpense = (tenantId?: string) => {
       currencyCode,
       note,
     }: {
+      expenseId: string;
       categoryId: string;
       subcategoryId: string | null;
       paymentMethodId: string | null;
@@ -26,7 +28,8 @@ export const useCreateExpense = (tenantId?: string) => {
       if (!tenantId) {
         throw new Error('Tenant no disponible.');
       }
-      return createExpense({
+      return updateExpense({
+        expenseId,
         tenantId,
         categoryId,
         subcategoryId,

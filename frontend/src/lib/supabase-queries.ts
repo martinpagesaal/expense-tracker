@@ -1,10 +1,16 @@
 import { supabase } from '@/lib/supabase';
-import type { Category, Expense, Profile, Subcategory, TenantUser } from '@/lib/types';
+import type {
+  Category,
+  Expense,
+  PaymentMethod,
+  Profile,
+  Subcategory,
+  TenantUser,
+} from '@/lib/types';
 
 const FX_CACHE_HOURS = 12;
-
-const toIsoStartOfDay = (date: string) => `${date}T00:00:00.000Z`;
-const toIsoEndOfDay = (date: string) => `${date}T23:59:59.999Z`;
+const ARS_CODE = 'ARS';
+const USD_CODE = 'USD';
 
 export const getOrCreateTenantMembership = async (userId: string) => {
   const { data: membership, error: membershipError } = await supabase
@@ -82,6 +88,22 @@ export const createCategory = async (tenantId: string, name: string) => {
   return data as Category;
 };
 
+export const updateCategory = async (tenantId: string, categoryId: string, name: string) => {
+  const { data, error } = await supabase
+    .from('categories')
+    .update({ name })
+    .eq('tenant_id', tenantId)
+    .eq('id', categoryId)
+    .select('id,name')
+    .single();
+
+  if (error) {
+    throw error;
+  }
+
+  return data as Category;
+};
+
 export const createSubcategory = async (tenantId: string, categoryId: string, name: string) => {
   const { data, error } = await supabase
     .from('subcategories')
@@ -94,6 +116,71 @@ export const createSubcategory = async (tenantId: string, categoryId: string, na
   }
 
   return data as Subcategory;
+};
+
+export const updateSubcategory = async (tenantId: string, subcategoryId: string, name: string) => {
+  const { data, error } = await supabase
+    .from('subcategories')
+    .update({ name })
+    .eq('tenant_id', tenantId)
+    .eq('id', subcategoryId)
+    .select('id,name,category_id')
+    .single();
+
+  if (error) {
+    throw error;
+  }
+
+  return data as Subcategory;
+};
+
+export const fetchPaymentMethods = async (tenantId: string) => {
+  const { data, error } = await supabase
+    .from('payment_methods')
+    .select('id,name,is_active')
+    .eq('tenant_id', tenantId)
+    .eq('is_active', true)
+    .order('name');
+
+  if (error) {
+    throw error;
+  }
+
+  return (data ?? []) as PaymentMethod[];
+};
+
+export const createPaymentMethod = async (tenantId: string, name: string) => {
+  const { data, error } = await supabase
+    .from('payment_methods')
+    .insert({ tenant_id: tenantId, name })
+    .select('id,name,is_active')
+    .single();
+
+  if (error) {
+    throw error;
+  }
+
+  return data as PaymentMethod;
+};
+
+export const updatePaymentMethod = async (
+  tenantId: string,
+  paymentMethodId: string,
+  name: string
+) => {
+  const { data, error } = await supabase
+    .from('payment_methods')
+    .update({ name })
+    .eq('tenant_id', tenantId)
+    .eq('id', paymentMethodId)
+    .select('id,name,is_active')
+    .single();
+
+  if (error) {
+    throw error;
+  }
+
+  return data as PaymentMethod;
 };
 
 export const fetchProfiles = async () => {
@@ -122,10 +209,10 @@ export const fetchExpenses = async (tenantId: string, filters: ExpenseFilters = 
   let query = supabase
     .from('expenses')
     .select(
-      'id,tenant_id,category_id,subcategory_id,amount_original,currency_code,fx_rate_to_usd,amount_usd,note,created_by,created_at,category:categories(id,name),subcategory:subcategories(id,name)'
+      'id,tenant_id,category_id,subcategory_id,payment_method_id,expense_date,amount_original,currency_code,fx_rate_to_usd,amount_usd,amount_ars,note,created_by,created_at,category:categories(id,name),subcategory:subcategories(id,name),payment_method:payment_methods(id,name)'
     )
     .eq('tenant_id', tenantId)
-    .order('created_at', { ascending: false });
+    .order('expense_date', { ascending: false });
 
   if (filters.categoryId) {
     query = query.eq('category_id', filters.categoryId);
@@ -140,11 +227,11 @@ export const fetchExpenses = async (tenantId: string, filters: ExpenseFilters = 
   }
 
   if (filters.startDate) {
-    query = query.gte('created_at', toIsoStartOfDay(filters.startDate));
+    query = query.gte('expense_date', filters.startDate);
   }
 
   if (filters.endDate) {
-    query = query.lte('created_at', toIsoEndOfDay(filters.endDate));
+    query = query.lte('expense_date', filters.endDate);
   }
 
   if (filters.limit) {
@@ -160,26 +247,23 @@ export const fetchExpenses = async (tenantId: string, filters: ExpenseFilters = 
   return (data ?? []) as unknown as Expense[];
 };
 
-export const getFxRateToUsd = async (currencyCode: string) => {
-  if (currencyCode === 'USD') {
-    return 1;
-  }
-
+export const getFxRates = async (currencyCode: string) => {
+  const normalizedCode = currencyCode.toUpperCase();
   const { data: cached, error: cachedError } = await supabase
     .from('fx_rates')
-    .select('quote_currency,rate_to_usd,fetched_at')
-    .eq('quote_currency', currencyCode)
+    .select('quote_currency,rate_to_usd,rate_to_ars,fetched_at')
+    .eq('quote_currency', normalizedCode)
     .maybeSingle();
 
   if (cachedError) {
     throw cachedError;
   }
 
-  if (cached?.rate_to_usd) {
+  if (cached?.rate_to_usd && cached?.rate_to_ars) {
     const fetchedAt = new Date(cached.fetched_at);
     const hoursDiff = (Date.now() - fetchedAt.getTime()) / (1000 * 60 * 60);
     if (hoursDiff <= FX_CACHE_HOURS) {
-      return cached.rate_to_usd;
+      return { rateToUsd: cached.rate_to_usd, rateToArs: cached.rate_to_ars };
     }
   }
 
@@ -189,37 +273,51 @@ export const getFxRateToUsd = async (currencyCode: string) => {
   }
 
   const response = await fetch(
-    `https://v6.exchangerate-api.com/v6/${apiKey}/pair/USD/${currencyCode}`
+    `https://v6.exchangerate-api.com/v6/${apiKey}/latest/${normalizedCode}`
   );
   if (!response.ok) {
     throw new Error('No se pudo obtener la tasa de cambio.');
   }
 
-  const payload = (await response.json()) as { conversion_rate?: number; result?: string };
-  const rateFromUsd = payload?.conversion_rate;
-  if (!rateFromUsd) {
+  const payload = (await response.json()) as {
+    conversion_rates?: Record<string, number>;
+    result?: string;
+  };
+  const rates = payload?.conversion_rates;
+  if (!rates) {
     throw new Error('La moneda seleccionada no tiene tasa disponible.');
   }
 
-  const rateToUsd = 1 / rateFromUsd;
+  const rateToUsd = normalizedCode === USD_CODE ? 1 : rates[USD_CODE];
+  const rateToArs = normalizedCode === ARS_CODE ? 1 : rates[ARS_CODE];
 
-  const { error: upsertError } = await supabase.from('fx_rates').upsert({
-    quote_currency: currencyCode,
-    rate_to_usd: rateToUsd,
-    fetched_at: new Date().toISOString(),
-  });
+  if (!rateToUsd || !rateToArs) {
+    throw new Error('No se pudo convertir a USD o ARS.');
+  }
+
+  const { error: upsertError } = await supabase.from('fx_rates').upsert(
+    {
+      quote_currency: normalizedCode,
+      rate_to_usd: rateToUsd,
+      rate_to_ars: rateToArs,
+      fetched_at: new Date().toISOString(),
+    },
+    { onConflict: 'quote_currency' }
+  );
 
   if (upsertError) {
     throw upsertError;
   }
 
-  return rateToUsd;
+  return { rateToUsd, rateToArs };
 };
 
 export const createExpense = async ({
   tenantId,
   categoryId,
   subcategoryId,
+  paymentMethodId,
+  expenseDate,
   amount,
   currencyCode,
   note,
@@ -227,12 +325,15 @@ export const createExpense = async ({
   tenantId: string;
   categoryId: string;
   subcategoryId: string | null;
+  paymentMethodId: string | null;
+  expenseDate: string;
   amount: number;
   currencyCode: string;
   note?: string;
 }) => {
-  const fxRate = await getFxRateToUsd(currencyCode);
-  const amountUsd = Number((amount * fxRate).toFixed(2));
+  const { rateToUsd, rateToArs } = await getFxRates(currencyCode);
+  const amountUsd = Number((amount * rateToUsd).toFixed(2));
+  const amountArs = Number((amount * rateToArs).toFixed(2));
 
   const { data, error } = await supabase
     .from('expenses')
@@ -240,14 +341,70 @@ export const createExpense = async ({
       tenant_id: tenantId,
       category_id: categoryId,
       subcategory_id: subcategoryId,
+      payment_method_id: paymentMethodId,
+      expense_date: expenseDate,
       amount_original: amount,
       currency_code: currencyCode,
-      fx_rate_to_usd: fxRate,
+      fx_rate_to_usd: rateToUsd,
       amount_usd: amountUsd,
+      amount_ars: amountArs,
       note: note ?? null,
     })
     .select(
-      'id,tenant_id,category_id,subcategory_id,amount_original,currency_code,fx_rate_to_usd,amount_usd,note,created_by,created_at'
+      'id,tenant_id,category_id,subcategory_id,payment_method_id,expense_date,amount_original,currency_code,fx_rate_to_usd,amount_usd,amount_ars,note,created_by,created_at'
+    )
+    .single();
+
+  if (error) {
+    throw error;
+  }
+
+  return data as Expense;
+};
+
+export const updateExpense = async ({
+  expenseId,
+  tenantId,
+  categoryId,
+  subcategoryId,
+  paymentMethodId,
+  expenseDate,
+  amount,
+  currencyCode,
+  note,
+}: {
+  expenseId: string;
+  tenantId: string;
+  categoryId: string;
+  subcategoryId: string | null;
+  paymentMethodId: string | null;
+  expenseDate: string;
+  amount: number;
+  currencyCode: string;
+  note?: string;
+}) => {
+  const { rateToUsd, rateToArs } = await getFxRates(currencyCode);
+  const amountUsd = Number((amount * rateToUsd).toFixed(2));
+  const amountArs = Number((amount * rateToArs).toFixed(2));
+
+  const { data, error } = await supabase
+    .from('expenses')
+    .update({
+      tenant_id: tenantId,
+      category_id: categoryId,
+      subcategory_id: subcategoryId,
+      payment_method_id: paymentMethodId,
+      expense_date: expenseDate,
+      amount_original: amount,
+      currency_code: currencyCode,
+      fx_rate_to_usd: rateToUsd,
+      amount_usd: amountUsd,
+      amount_ars: amountArs,
+      note: note ?? null,
+    })
+    .eq('id', expenseId)
+    .select(
+      'id,tenant_id,category_id,subcategory_id,payment_method_id,expense_date,amount_original,currency_code,fx_rate_to_usd,amount_usd,amount_ars,note,created_by,created_at'
     )
     .single();
 

@@ -37,15 +37,28 @@ create table if not exists public.subcategories (
   unique (tenant_id, category_id, name)
 );
 
+create table if not exists public.payment_methods (
+  id uuid primary key default gen_random_uuid(),
+  tenant_id uuid not null references public.tenants(id) on delete cascade,
+  name text not null,
+  is_active boolean not null default true,
+  created_by uuid references auth.users(id) default auth.uid(),
+  created_at timestamptz not null default now(),
+  unique (tenant_id, name)
+);
+
 create table if not exists public.expenses (
   id uuid primary key default gen_random_uuid(),
   tenant_id uuid not null references public.tenants(id) on delete cascade,
   category_id uuid not null references public.categories(id) on delete restrict,
   subcategory_id uuid references public.subcategories(id) on delete restrict,
+  payment_method_id uuid references public.payment_methods(id) on delete set null,
+  expense_date date not null default current_date,
   amount_original numeric(14, 2) not null,
   currency_code text not null,
   fx_rate_to_usd numeric(18, 8) not null,
   amount_usd numeric(14, 2) not null,
+  amount_ars numeric(14, 2) not null,
   note text,
   created_by uuid not null default auth.uid() references auth.users(id),
   created_at timestamptz not null default now()
@@ -55,15 +68,36 @@ create table if not exists public.fx_rates (
   id uuid primary key default gen_random_uuid(),
   quote_currency text not null,
   rate_to_usd numeric(18, 8) not null,
+  rate_to_ars numeric(18, 8) not null,
   fetched_at timestamptz not null default now(),
   unique (quote_currency)
 );
+
+-- Data reset for schema changes (run once if migrating existing data)
+delete from public.expenses;
+
+-- Ensure expenses columns exist for existing installations
+alter table public.expenses add column if not exists payment_method_id uuid references public.payment_methods(id) on delete set null;
+alter table public.expenses add column if not exists expense_date date not null default current_date;
+alter table public.expenses add column if not exists amount_original numeric(14, 2) not null;
+alter table public.expenses add column if not exists currency_code text not null;
+alter table public.expenses add column if not exists fx_rate_to_usd numeric(18, 8) not null;
+alter table public.expenses add column if not exists amount_usd numeric(14, 2) not null;
+alter table public.expenses add column if not exists amount_ars numeric(14, 2) not null;
+alter table public.expenses add column if not exists note text;
+alter table public.expenses add column if not exists created_by uuid not null default auth.uid() references auth.users(id);
+alter table public.expenses add column if not exists created_at timestamptz not null default now();
+
+-- Ensure fx_rates columns exist for existing installations
+alter table public.fx_rates add column if not exists rate_to_usd numeric(18, 8) not null default 1;
+alter table public.fx_rates add column if not exists rate_to_ars numeric(18, 8) not null default 1;
 
 alter table public.tenants enable row level security;
 alter table public.tenant_users enable row level security;
 alter table public.categories enable row level security;
 alter table public.subcategories enable row level security;
 alter table public.expenses enable row level security;
+alter table public.payment_methods enable row level security;
 alter table public.fx_rates enable row level security;
 
 create or replace function public.is_tenant_member(tenant_id uuid)
@@ -187,6 +221,29 @@ with check (
   and created_by = auth.uid()
 );
 
+drop policy if exists "Expenses update for creator" on public.expenses;
+create policy "Expenses update for creator"
+on public.expenses for update
+to authenticated
+using (created_by = auth.uid())
+with check (created_by = auth.uid());
+
+-- Payment methods
+drop policy if exists "Payment methods select for member" on public.payment_methods;
+create policy "Payment methods select for member"
+on public.payment_methods for select
+to authenticated
+using (public.is_tenant_member(tenant_id));
+
+drop policy if exists "Payment methods insert for member" on public.payment_methods;
+create policy "Payment methods insert for member"
+on public.payment_methods for insert
+to authenticated
+with check (
+  public.is_tenant_member(tenant_id)
+  and created_by = auth.uid()
+);
+
 -- FX rates
 drop policy if exists "FX rates select for authenticated" on public.fx_rates;
 create policy "FX rates select for authenticated"
@@ -236,4 +293,11 @@ from (
 join public.categories
   on categories.name = defaults.category_name
   and categories.tenant_id = '00000000-0000-0000-0000-000000000001'
+on conflict do nothing;
+
+insert into public.payment_methods (tenant_id, name, created_by)
+values
+  ('00000000-0000-0000-0000-000000000001', 'Efectivo', null),
+  ('00000000-0000-0000-0000-000000000001', 'Tarjeta VISA Macro', null),
+  ('00000000-0000-0000-0000-000000000001', 'Tarjeta MasterCard', null)
 on conflict do nothing;
