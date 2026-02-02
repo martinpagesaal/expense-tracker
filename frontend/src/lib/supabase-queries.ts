@@ -414,3 +414,21 @@ export const updateExpense = async ({
 
   return data as Expense;
 };
+
+export const deleteExpense = async ({
+  expenseId,
+  tenantId,
+}: {
+  expenseId: string;
+  tenantId: string;
+}) => {
+  const { error } = await supabase
+    .from('expenses')
+    .delete()
+    .eq('id', expenseId)
+    .eq('tenant_id', tenantId);
+
+  if (error) {
+    throw error;
+  }
+};

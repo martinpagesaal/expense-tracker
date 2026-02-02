@@ -6,6 +6,7 @@ import {
   Group,
   Modal,
   NumberInput,
+  Popover,
   ScrollArea,
   Select,
   Stack,
@@ -15,8 +16,9 @@ import {
   TextInput,
   Title,
 } from '@mantine/core';
+import { useMediaQuery } from '@mantine/hooks';
 import { notifications } from '@mantine/notifications';
-import { IconPencil } from '@tabler/icons-react';
+import { IconPencil, IconTrash } from '@tabler/icons-react';
 import * as React from 'react';
 
 import { useTenant } from '@/hooks/app/use-tenant';
@@ -25,6 +27,7 @@ import { useCategories } from '@/hooks/expenses/use-categories';
 import { useExpenses } from '@/hooks/expenses/use-expenses';
 import { usePaymentMethods } from '@/hooks/expenses/use-payment-methods';
 import { useProfiles } from '@/hooks/expenses/use-profiles';
+import { useDeleteExpense } from '@/hooks/expenses/use-delete-expense';
 import { useUpdateExpense } from '@/hooks/expenses/use-update-expense';
 import type { ExpenseFilters } from '@/lib/supabase-queries';
 import type { Expense } from '@/lib/types';
@@ -60,6 +63,10 @@ export const ExpensesPage = () => {
   const { mutateAsync: updateExpense, isPending: isUpdatingExpense } = useUpdateExpense(
     tenantUser?.tenant_id
   );
+  const { mutateAsync: deleteExpense, isPending: isDeletingExpense } = useDeleteExpense(
+    tenantUser?.tenant_id
+  );
+  const isMobile = useMediaQuery('(max-width: 768px)');
 
   const [filters, setFilters] = React.useState<ExpenseFilters>({
     startDate: '',
@@ -92,6 +99,7 @@ export const ExpensesPage = () => {
   const [editAmount, setEditAmount] = React.useState<number | ''>('');
   const [editCurrencyCode, setEditCurrencyCode] = React.useState<string | null>(null);
   const [editNote, setEditNote] = React.useState('');
+  const [openedDeleteId, setOpenedDeleteId] = React.useState<string | null>(null);
 
   const editSubcategories = subcategories.filter(
     (subcategory) => subcategory.category_id === editCategoryId
@@ -173,8 +181,151 @@ export const ExpensesPage = () => {
     handleCloseEdit();
   };
 
+  const handleDeleteExpense = async (expense: Expense) => {
+    try {
+      await deleteExpense({ expenseId: expense.id });
+      notifications.show({ message: 'Gasto eliminado', color: 'green' });
+      setOpenedDeleteId(null);
+    } catch (error) {
+      notifications.show({ message: 'No se pudo eliminar el gasto.', color: 'red' });
+    }
+  };
+
   const totalUsd = expenses.reduce((total, expense) => total + expense.amount_usd, 0);
   const totalArs = expenses.reduce((total, expense) => total + expense.amount_ars, 0);
+  const tableContent = (
+    <Table striped highlightOnHover withTableBorder withColumnBorders>
+      <Table.Thead>
+        <Table.Tr>
+          <Table.Th>Fecha</Table.Th>
+          <Table.Th>Categoría</Table.Th>
+          <Table.Th>Monto</Table.Th>
+          {!isMobile ? <Table.Th>USD</Table.Th> : null}
+          {!isMobile ? <Table.Th>ARS</Table.Th> : null}
+          {!isMobile ? <Table.Th>Método de pago</Table.Th> : null}
+          {!isMobile ? <Table.Th>Usuario</Table.Th> : null}
+          {!isMobile ? <Table.Th>Notas</Table.Th> : null}
+          <Table.Th>Acciones</Table.Th>
+        </Table.Tr>
+      </Table.Thead>
+      <Table.Tbody>
+        {expenses.map((expense) => {
+          const createdByLabel = profileMap.get(expense.created_by) || 'Usuario';
+          const categoryName =
+            expense.category?.name ||
+            categories.find((category) => category.id === expense.category_id)?.name ||
+            'Sin categoría';
+          const subcategoryName =
+            expense.subcategory?.name ||
+            subcategories.find((subcategory) => subcategory.id === expense.subcategory_id)
+              ?.name ||
+            '';
+          const paymentMethodName =
+            expense.payment_method?.name ||
+            (expense.payment_method_id
+              ? paymentMethodMap.get(expense.payment_method_id) || 'Sin método'
+              : 'Sin método');
+
+          return (
+            <Table.Tr key={expense.id}>
+              <Table.Td>{formatExpenseDate(expense.expense_date)}</Table.Td>
+              <Table.Td>
+                <Text size="sm" fw={600}>
+                  {categoryName}
+                  {subcategoryName ? ` / ${subcategoryName}` : ''}
+                </Text>
+              </Table.Td>
+              <Table.Td>
+                {expense.amount_original.toFixed(2)} {expense.currency_code}
+              </Table.Td>
+              {!isMobile ? <Table.Td>{expense.amount_usd.toFixed(2)} USD</Table.Td> : null}
+              {!isMobile ? <Table.Td>{expense.amount_ars.toFixed(2)} ARS</Table.Td> : null}
+              {!isMobile ? <Table.Td>{paymentMethodName}</Table.Td> : null}
+              {!isMobile ? <Table.Td>{createdByLabel}</Table.Td> : null}
+              {!isMobile ? <Table.Td>{expense.note || '-'}</Table.Td> : null}
+              <Table.Td>
+                <Group gap="xs" wrap="nowrap">
+                  {expense.created_by === user?.id ? (
+                    <ActionIcon
+                      variant="light"
+                      color="blue"
+                      onClick={() => handleOpenEdit(expense)}
+                      aria-label="Editar gasto"
+                    >
+                      <IconPencil size={16} />
+                    </ActionIcon>
+                  ) : null}
+                  <Popover
+                    opened={openedDeleteId === expense.id}
+                    onChange={(opened) => setOpenedDeleteId(opened ? expense.id : null)}
+                    position="bottom-end"
+                    shadow="md"
+                    withArrow
+                  >
+                    <Popover.Target>
+                      <ActionIcon
+                        variant="light"
+                        color="red"
+                        aria-label="Eliminar gasto"
+                        onClick={() =>
+                          setOpenedDeleteId((current) =>
+                            current === expense.id ? null : expense.id
+                          )
+                        }
+                      >
+                        <IconTrash size={16} />
+                      </ActionIcon>
+                    </Popover.Target>
+                    <Popover.Dropdown>
+                      <Stack gap="xs">
+                        <Text size="sm">Eliminar este gasto?</Text>
+                        <Group gap="xs" justify="flex-end">
+                          <Button
+                            size="xs"
+                            variant="default"
+                            onClick={() => setOpenedDeleteId(null)}
+                          >
+                            Cancelar
+                          </Button>
+                          <Button
+                            size="xs"
+                            color="red"
+                            onClick={() => handleDeleteExpense(expense)}
+                            loading={isDeletingExpense && openedDeleteId === expense.id}
+                          >
+                            Eliminar
+                          </Button>
+                        </Group>
+                      </Stack>
+                    </Popover.Dropdown>
+                  </Popover>
+                </Group>
+              </Table.Td>
+            </Table.Tr>
+          );
+        })}
+      </Table.Tbody>
+      <Table.Tfoot>
+        <Table.Tr>
+          <Table.Th colSpan={isMobile ? 2 : 3}>Totales</Table.Th>
+          {isMobile ? (
+            <>
+              <Table.Th>
+                {totalUsd.toFixed(2)} USD / {totalArs.toFixed(2)} ARS
+              </Table.Th>
+              <Table.Th />
+            </>
+          ) : (
+            <>
+              <Table.Th>{totalUsd.toFixed(2)} USD</Table.Th>
+              <Table.Th>{totalArs.toFixed(2)} ARS</Table.Th>
+              <Table.Th colSpan={4} />
+            </>
+          )}
+        </Table.Tr>
+      </Table.Tfoot>
+    </Table>
+  );
 
   return (
     <Stack gap="md">
@@ -252,82 +403,7 @@ export const ExpensesPage = () => {
 
       {!isLoading && expenses.length > 0 ? (
         <Card withBorder radius="md" padding="md">
-          <ScrollArea>
-            <Table striped highlightOnHover withTableBorder withColumnBorders>
-              <Table.Thead>
-                <Table.Tr>
-                  <Table.Th>Fecha</Table.Th>
-                  <Table.Th>Categoría</Table.Th>
-                  <Table.Th>Monto original</Table.Th>
-                  <Table.Th>USD</Table.Th>
-                  <Table.Th>ARS</Table.Th>
-                  <Table.Th>Método de pago</Table.Th>
-                  <Table.Th>Usuario</Table.Th>
-                  <Table.Th>Notas</Table.Th>
-                  <Table.Th>Acciones</Table.Th>
-                </Table.Tr>
-              </Table.Thead>
-              <Table.Tbody>
-                {expenses.map((expense) => {
-                  const createdByLabel = profileMap.get(expense.created_by) || 'Usuario';
-                  const categoryName =
-                    expense.category?.name ||
-                    categories.find((category) => category.id === expense.category_id)?.name ||
-                    'Sin categoría';
-                  const subcategoryName =
-                    expense.subcategory?.name ||
-                    subcategories.find((subcategory) => subcategory.id === expense.subcategory_id)
-                      ?.name ||
-                    '';
-                  const paymentMethodName =
-                    expense.payment_method?.name ||
-                    (expense.payment_method_id
-                      ? paymentMethodMap.get(expense.payment_method_id) || 'Sin método'
-                      : 'Sin método');
-
-                  return (
-                    <Table.Tr key={expense.id}>
-                      <Table.Td>{formatExpenseDate(expense.expense_date)}</Table.Td>
-                      <Table.Td>
-                        <Text size="sm" fw={600}>
-                          {categoryName}
-                          {subcategoryName ? ` / ${subcategoryName}` : ''}
-                        </Text>
-                      </Table.Td>
-                      <Table.Td>
-                        {expense.amount_original.toFixed(2)} {expense.currency_code}
-                      </Table.Td>
-                      <Table.Td>{expense.amount_usd.toFixed(2)} USD</Table.Td>
-                      <Table.Td>{expense.amount_ars.toFixed(2)} ARS</Table.Td>
-                      <Table.Td>{paymentMethodName}</Table.Td>
-                      <Table.Td>{createdByLabel}</Table.Td>
-                      <Table.Td>{expense.note || '-'}</Table.Td>
-                      <Table.Td>
-                        {expense.created_by === user?.id ? (
-                          <ActionIcon
-                            variant="light"
-                            color="blue"
-                            onClick={() => handleOpenEdit(expense)}
-                            aria-label="Editar gasto"
-                          >
-                            <IconPencil size={16} />
-                          </ActionIcon>
-                        ) : null}
-                      </Table.Td>
-                    </Table.Tr>
-                  );
-                })}
-              </Table.Tbody>
-              <Table.Tfoot>
-                <Table.Tr>
-                  <Table.Th colSpan={3}>Totales</Table.Th>
-                  <Table.Th>{totalUsd.toFixed(2)} USD</Table.Th>
-                  <Table.Th>{totalArs.toFixed(2)} ARS</Table.Th>
-                  <Table.Th colSpan={4} />
-                </Table.Tr>
-              </Table.Tfoot>
-            </Table>
-          </ScrollArea>
+          {isMobile ? <ScrollArea>{tableContent}</ScrollArea> : tableContent}
         </Card>
       ) : null}
 

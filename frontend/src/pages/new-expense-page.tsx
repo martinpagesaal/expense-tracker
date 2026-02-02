@@ -112,14 +112,15 @@ export const NewExpensePage = () => {
   const isAmountValid = Number.isFinite(parsedAmount) && parsedAmount > 0;
   const canProceedCategory = Boolean(categoryId);
   const canProceedAmount = isAmountValid && Boolean(currencyCode);
+  const isLastStep = activeStep === 4;
 
-  const handleNextStep = () => {
+  const handleNextStep = React.useCallback(() => {
     setActiveStep((current) => Math.min(current + 1, 4));
-  };
+  }, []);
 
-  const handlePreviousStep = () => {
+  const handlePreviousStep = React.useCallback(() => {
     setActiveStep((current) => Math.max(current - 1, 0));
-  };
+  }, []);
 
   React.useEffect(() => {
     const storedCurrency = window.localStorage.getItem(LOCAL_STORAGE_CURRENCY_KEY);
@@ -144,7 +145,7 @@ export const NewExpensePage = () => {
     }
   }, [paymentMethodId]);
 
-  const handleSaveExpense = async () => {
+  const handleSaveExpense = React.useCallback(async () => {
     if (!categoryId || !currencyCode || !isAmountValid) {
       notifications.show({
         message: 'Completa categoría, monto y moneda.',
@@ -167,7 +168,61 @@ export const NewExpensePage = () => {
     setNote('');
     setSubcategoryId(null);
     notifications.show({ message: 'Gasto guardado', color: 'green' });
-  };
+  }, [
+    categoryId,
+    createExpense,
+    currencyCode,
+    expenseDate,
+    isAmountValid,
+    note,
+    parsedAmount,
+    paymentMethodId,
+    subcategoryId,
+  ]);
+
+  const nextAction = React.useMemo(() => {
+    if (isLastStep) {
+      return {
+        label: 'Guardar gasto',
+        onClick: handleSaveExpense,
+        disabled: false,
+        loading: isCreatingExpense,
+      };
+    }
+
+    if (activeStep === 0 || activeStep === 1) {
+      return {
+        label: 'Siguiente',
+        onClick: handleNextStep,
+        disabled: !canProceedCategory,
+        loading: false,
+      };
+    }
+
+    if (activeStep === 2) {
+      return {
+        label: 'Siguiente',
+        onClick: handleNextStep,
+        disabled: !canProceedAmount,
+        loading: false,
+      };
+    }
+
+    return {
+      label: 'Siguiente',
+      onClick: handleNextStep,
+      disabled: false,
+      loading: false,
+    };
+  }, [
+    activeStep,
+    canProceedAmount,
+    canProceedCategory,
+    handleNextStep,
+    handleSaveExpense,
+    isCreatingExpense,
+    isLastStep,
+  ]);
 
   const handleCreateCategory = async () => {
     if (!newCategoryName.trim()) {
@@ -206,12 +261,16 @@ export const NewExpensePage = () => {
   };
 
   return (
-    <Stack gap="md">
+    <Stack gap="md" className="tw-h-full">
       <Title order={3}>Nuevo gasto</Title>
 
       <Stepper
         active={activeStep}
         allowNextStepsSelect={false}
+        styles={{
+          stepLabel: { display: 'none' },
+          stepDescription: { display: 'none' },
+        }}
         onStepClick={(step) => {
           if (step <= activeStep) {
             setActiveStep(step);
@@ -261,14 +320,6 @@ export const NewExpensePage = () => {
               ) : null}
             </Stack>
           </Card>
-          <Group justify="space-between" mt="md">
-            <Button variant="default" onClick={handlePreviousStep} disabled>
-              Atrás
-            </Button>
-            <Button onClick={handleNextStep} disabled={!canProceedCategory}>
-              Siguiente
-            </Button>
-          </Group>
         </Stepper.Step>
 
         <Stepper.Step label="Subcategoría" description="Opcional">
@@ -318,14 +369,6 @@ export const NewExpensePage = () => {
               ) : null}
             </Stack>
           </Card>
-          <Group justify="space-between" mt="md">
-            <Button variant="default" onClick={handlePreviousStep}>
-              Atrás
-            </Button>
-            <Button onClick={handleNextStep} disabled={!canProceedCategory}>
-              Siguiente
-            </Button>
-          </Group>
         </Stepper.Step>
 
         <Stepper.Step label="Monto" description="Ingresá el monto">
@@ -387,14 +430,6 @@ export const NewExpensePage = () => {
               </Stack>
             </Stack>
           </Card>
-          <Group justify="space-between" mt="md">
-            <Button variant="default" onClick={handlePreviousStep}>
-              Atrás
-            </Button>
-            <Button onClick={handleNextStep} disabled={!canProceedAmount}>
-              Siguiente
-            </Button>
-          </Group>
         </Stepper.Step>
 
         <Stepper.Step label="Método de pago" description="Elegí cómo pagaste">
@@ -436,12 +471,6 @@ export const NewExpensePage = () => {
               ) : null}
             </Stack>
           </Card>
-          <Group justify="space-between" mt="md">
-            <Button variant="default" onClick={handlePreviousStep}>
-              Atrás
-            </Button>
-            <Button onClick={handleNextStep}>Siguiente</Button>
-          </Group>
         </Stepper.Step>
 
         <Stepper.Step label="Detalles" description="Fecha, nota y guardar">
@@ -462,16 +491,23 @@ export const NewExpensePage = () => {
               />
             </Stack>
           </Card>
-          <Group justify="space-between" mt="md">
-            <Button variant="default" onClick={handlePreviousStep}>
-              Atrás
-            </Button>
-            <Button onClick={handleSaveExpense} loading={isCreatingExpense}>
-              Guardar gasto
-            </Button>
-          </Group>
         </Stepper.Step>
       </Stepper>
+
+      <Card withBorder radius="md" padding="sm">
+        <Group justify="space-between">
+          <Button variant="default" onClick={handlePreviousStep} disabled={activeStep === 0}>
+            Atrás
+          </Button>
+          <Button
+            onClick={nextAction.onClick}
+            disabled={nextAction.disabled}
+            loading={nextAction.loading}
+          >
+            {nextAction.label}
+          </Button>
+        </Group>
+      </Card>
 
       <Modal
         opened={isCategoryModalOpen}
