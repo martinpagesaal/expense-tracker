@@ -5,7 +5,9 @@ import {
   Group,
   Modal,
   NumberInput,
+  SimpleGrid,
   Stack,
+  Stepper,
   Text,
   Textarea,
   TextInput,
@@ -45,13 +47,14 @@ export const NewExpensePage = () => {
   const { mutateAsync: createPaymentMethod, isPending: isCreatingPaymentMethod } =
     useCreatePaymentMethod(tenantUser?.tenant_id);
 
+  const [activeStep, setActiveStep] = React.useState(0);
   const [categoryId, setCategoryId] = React.useState<string | null>(null);
   const [subcategoryId, setSubcategoryId] = React.useState<string | null>(null);
   const [paymentMethodId, setPaymentMethodId] = React.useState<string | null>(null);
   const [expenseDate, setExpenseDate] = React.useState<string>(
     new Date().toISOString().slice(0, 10)
   );
-  const [amount, setAmount] = React.useState<number | ''>('');
+  const [amountInput, setAmountInput] = React.useState('');
   const [currencyCode, setCurrencyCode] = React.useState<string | null>(DEFAULT_CURRENCY);
   const [note, setNote] = React.useState('');
 
@@ -67,6 +70,56 @@ export const NewExpensePage = () => {
   const subcategoriesForCategory = subcategories.filter(
     (subcategory) => subcategory.category_id === categoryId
   );
+
+  const normalizedAmountInput = React.useCallback((rawValue: string) => {
+    if (!rawValue) {
+      return '';
+    }
+    const sanitized = rawValue.replace(',', '.').replace(/[^0-9.]/g, '');
+    const [integerPart, ...decimalParts] = sanitized.split('.');
+    const decimals = decimalParts.join('');
+    const trimmedDecimals = decimals.slice(0, 2);
+    if (trimmedDecimals.length > 0) {
+      return `${integerPart || '0'}.${trimmedDecimals}`;
+    }
+    return integerPart;
+  }, []);
+
+  const handleNumpadPress = React.useCallback((key: string) => {
+    setAmountInput((current) => {
+      if (key === 'C') {
+        return '';
+      }
+      if (key === 'Del') {
+        return current.slice(0, -1);
+      }
+      if (key === '.') {
+        if (current.includes('.')) {
+          return current;
+        }
+        return current === '' ? '0.' : `${current}.`;
+      }
+      const nextValue = current === '0' ? key : `${current}${key}`;
+      const [integerPart, decimalPart] = nextValue.split('.');
+      if (decimalPart && decimalPart.length > 2) {
+        return current;
+      }
+      return integerPart === '' ? '0' : nextValue;
+    });
+  }, []);
+
+  const parsedAmount = Number(amountInput);
+  const isAmountValid = Number.isFinite(parsedAmount) && parsedAmount > 0;
+  const canProceedCategory = Boolean(categoryId);
+  const canProceedAmount = isAmountValid && Boolean(currencyCode);
+
+  const handleNextStep = () => {
+    setActiveStep((current) => Math.min(current + 1, 4));
+  };
+
+  const handlePreviousStep = () => {
+    setActiveStep((current) => Math.max(current - 1, 0));
+  };
 
   React.useEffect(() => {
     const storedCurrency = window.localStorage.getItem(LOCAL_STORAGE_CURRENCY_KEY);
@@ -92,7 +145,7 @@ export const NewExpensePage = () => {
   }, [paymentMethodId]);
 
   const handleSaveExpense = async () => {
-    if (!categoryId || !currencyCode || amount === '' || amount <= 0) {
+    if (!categoryId || !currencyCode || !isAmountValid) {
       notifications.show({
         message: 'Completa categoría, monto y moneda.',
         color: 'red',
@@ -105,12 +158,12 @@ export const NewExpensePage = () => {
       subcategoryId,
       paymentMethodId,
       expenseDate,
-      amount: Number(amount),
+      amount: parsedAmount,
       currencyCode,
       note: note.trim() || undefined,
     });
 
-    setAmount('');
+    setAmountInput('');
     setNote('');
     setSubcategoryId(null);
     notifications.show({ message: 'Gasto guardado', color: 'green' });
@@ -156,186 +209,269 @@ export const NewExpensePage = () => {
     <Stack gap="md">
       <Title order={3}>Nuevo gasto</Title>
 
-      <Card withBorder radius="md" padding="md">
-        <Stack gap="sm">
-          <Group justify="space-between">
-            <Text fw={600}>Categoría</Text>
-            <Button size="xs" variant="light" onClick={() => setIsCategoryModalOpen(true)}>
-              Agregar
+      <Stepper
+        active={activeStep}
+        allowNextStepsSelect={false}
+        onStepClick={(step) => {
+          if (step <= activeStep) {
+            setActiveStep(step);
+          }
+        }}
+      >
+        <Stepper.Step label="Categoría" description="Elegí la categoría">
+          <Card withBorder radius="md" padding="md">
+            <Stack gap="sm">
+              <Group justify="space-between">
+                <Text fw={600}>Categoría</Text>
+                <Button size="xs" variant="light" onClick={() => setIsCategoryModalOpen(true)}>
+                  Agregar
+                </Button>
+              </Group>
+              {isLoading ? (
+                <Text size="sm" c="dimmed">
+                  Cargando categorías...
+                </Text>
+              ) : null}
+              {!isLoading && categories.length === 0 ? (
+                <Text size="sm" c="dimmed">
+                  No hay categorías todavía.
+                </Text>
+              ) : null}
+              {!isLoading && categories.length > 0 ? (
+                <Chip.Group
+                  value={categoryId}
+                  onChange={(value) => {
+                    if (typeof value === 'string') {
+                      setCategoryId(value);
+                      setActiveStep(1);
+                    } else {
+                      setCategoryId(null);
+                    }
+                    setSubcategoryId(null);
+                  }}
+                >
+                  <Group gap="xs" wrap="wrap">
+                    {categories.map((category) => (
+                      <Chip key={category.id} value={category.id}>
+                        {category.name}
+                      </Chip>
+                    ))}
+                  </Group>
+                </Chip.Group>
+              ) : null}
+            </Stack>
+          </Card>
+          <Group justify="space-between" mt="md">
+            <Button variant="default" onClick={handlePreviousStep} disabled>
+              Atrás
+            </Button>
+            <Button onClick={handleNextStep} disabled={!canProceedCategory}>
+              Siguiente
             </Button>
           </Group>
-          {isLoading ? (
-            <Text size="sm" c="dimmed">
-              Cargando categorías...
-            </Text>
-          ) : null}
-          {!isLoading && categories.length === 0 ? (
-            <Text size="sm" c="dimmed">
-              No hay categorías todavía.
-            </Text>
-          ) : null}
-          {!isLoading && categories.length > 0 ? (
-            <Chip.Group
-              value={categoryId}
-              onChange={(value) => {
-                if (typeof value === 'string') {
-                  setCategoryId(value);
-                } else {
-                  setCategoryId(null);
-                }
-                setSubcategoryId(null);
-              }}
-            >
-              <Group gap="xs" wrap="wrap">
-                {categories.map((category) => (
-                  <Chip key={category.id} value={category.id}>
-                    {category.name}
-                  </Chip>
-                ))}
-              </Group>
-            </Chip.Group>
-          ) : null}
+        </Stepper.Step>
 
-          <Group justify="space-between" mt="sm">
-            <Text fw={600}>Subcategoría</Text>
-            <Button
-              size="xs"
-              variant="light"
-              onClick={() => setIsSubcategoryModalOpen(true)}
-              disabled={!categoryId}
-            >
-              Agregar
+        <Stepper.Step label="Subcategoría" description="Opcional">
+          <Card withBorder radius="md" padding="md">
+            <Stack gap="sm">
+              <Group justify="space-between">
+                <Text fw={600}>Subcategoría</Text>
+                <Button
+                  size="xs"
+                  variant="light"
+                  onClick={() => setIsSubcategoryModalOpen(true)}
+                  disabled={!categoryId}
+                >
+                  Agregar
+                </Button>
+              </Group>
+              {!categoryId ? (
+                <Text size="sm" c="dimmed">
+                  Selecciona una categoría para ver subcategorías.
+                </Text>
+              ) : null}
+              {categoryId && subcategoriesForCategory.length === 0 ? (
+                <Text size="sm" c="dimmed">
+                  No hay subcategorías para esta categoría.
+                </Text>
+              ) : null}
+              {categoryId && subcategoriesForCategory.length > 0 ? (
+                <Chip.Group
+                  value={subcategoryId}
+                  onChange={(value) => {
+                    if (typeof value === 'string') {
+                      setSubcategoryId(value);
+                      setActiveStep(2);
+                    } else {
+                      setSubcategoryId(null);
+                    }
+                  }}
+                >
+                  <Group gap="xs" wrap="wrap">
+                    {subcategoriesForCategory.map((subcategory) => (
+                      <Chip key={subcategory.id} value={subcategory.id}>
+                        {subcategory.name}
+                      </Chip>
+                    ))}
+                  </Group>
+                </Chip.Group>
+              ) : null}
+            </Stack>
+          </Card>
+          <Group justify="space-between" mt="md">
+            <Button variant="default" onClick={handlePreviousStep}>
+              Atrás
+            </Button>
+            <Button onClick={handleNextStep} disabled={!canProceedCategory}>
+              Siguiente
             </Button>
           </Group>
-          {!categoryId ? (
-            <Text size="sm" c="dimmed">
-              Selecciona una categoría para ver subcategorías.
-            </Text>
-          ) : null}
-          {categoryId && subcategoriesForCategory.length === 0 ? (
-            <Text size="sm" c="dimmed">
-              No hay subcategorías para esta categoría.
-            </Text>
-          ) : null}
-          {categoryId && subcategoriesForCategory.length > 0 ? (
-            <Chip.Group
-              value={subcategoryId}
-              onChange={(value) => {
-                if (typeof value === 'string') {
-                  setSubcategoryId(value);
-                } else {
-                  setSubcategoryId(null);
-                }
-              }}
-            >
-              <Group gap="xs" wrap="wrap">
-                {subcategoriesForCategory.map((subcategory) => (
-                  <Chip key={subcategory.id} value={subcategory.id}>
-                    {subcategory.name}
-                  </Chip>
-                ))}
-              </Group>
-            </Chip.Group>
-          ) : null}
-        </Stack>
-      </Card>
+        </Stepper.Step>
 
-      <Card withBorder radius="md" padding="md">
-        <Stack gap="sm">
-          <TextInput
-            type="date"
-            label="Fecha"
-            value={expenseDate}
-            onChange={(event) => setExpenseDate(event.currentTarget.value)}
-          />
-          <NumberInput
-            label="Monto"
-            placeholder="0.00"
-            min={0}
-            decimalScale={2}
-            value={amount}
-            onChange={(value) => {
-              if (typeof value === 'number') {
-                setAmount(value);
-                return;
-              }
-              if (value === '') {
-                setAmount('');
-                return;
-              }
-              const parsed = Number(value);
-              setAmount(Number.isNaN(parsed) ? '' : parsed);
-            }}
-          />
-          <Stack gap={6}>
-            <Text fw={500} size="sm">
-              Moneda
-            </Text>
-            <Chip.Group
-              value={currencyCode}
-              onChange={(value) => {
-                if (typeof value === 'string') {
-                  setCurrencyCode(value);
-                }
-              }}
-            >
-              <Group gap="xs" wrap="wrap">
-                {currencyOptions.map((currency) => (
-                  <Chip key={currency.value} value={currency.value}>
-                    {currency.label}
-                  </Chip>
-                ))}
-              </Group>
-            </Chip.Group>
-          </Stack>
-          <Stack gap={6}>
-            <Group justify="space-between">
-              <Text fw={500} size="sm">
-                Método de pago
-              </Text>
-              <Button size="xs" variant="light" onClick={() => setIsPaymentMethodModalOpen(true)}>
-                Agregar
-              </Button>
-            </Group>
-            {paymentMethods.length === 0 ? (
-              <Text size="sm" c="dimmed">
-                No hay métodos de pago aún.
-              </Text>
-            ) : null}
-            {paymentMethods.length > 0 ? (
-              <Chip.Group
-                value={paymentMethodId}
+        <Stepper.Step label="Monto" description="Ingresá el monto">
+          <Card withBorder radius="md" padding="md">
+            <Stack gap="md">
+              <NumberInput
+                label="Monto"
+                placeholder="0.00"
+                min={0}
+                decimalScale={2}
+                value={amountInput}
                 onChange={(value) => {
-                  if (typeof value === 'string') {
-                    setPaymentMethodId(value);
-                  } else {
-                    setPaymentMethodId(null);
+                  if (value === '' || value === null) {
+                    setAmountInput('');
+                    return;
                   }
+                  if (typeof value === 'number') {
+                    setAmountInput(normalizedAmountInput(value.toString()));
+                    return;
+                  }
+                  setAmountInput(normalizedAmountInput(value));
                 }}
-              >
-                <Group gap="xs" wrap="wrap">
-                  {paymentMethods.map((method) => (
-                    <Chip key={method.id} value={method.id}>
-                      {method.name}
-                    </Chip>
+              />
+              <Stack gap={6}>
+                <Text fw={500} size="sm">
+                  Moneda
+                </Text>
+                <Chip.Group
+                  value={currencyCode}
+                  onChange={(value) => {
+                    if (typeof value === 'string') {
+                      setCurrencyCode(value);
+                    }
+                  }}
+                >
+                  <Group gap="xs" wrap="wrap">
+                    {currencyOptions.map((currency) => (
+                      <Chip key={currency.value} value={currency.value}>
+                        {currency.label}
+                      </Chip>
+                    ))}
+                  </Group>
+                </Chip.Group>
+              </Stack>
+              <Stack gap="xs">
+                <Text fw={500} size="sm">
+                  Numpad
+                </Text>
+                <SimpleGrid cols={3} spacing="xs">
+                  {['1', '2', '3', '4', '5', '6', '7', '8', '9', '.', '0', 'Del'].map((key) => (
+                    <Button key={key} variant="default" onClick={() => handleNumpadPress(key)}>
+                      {key}
+                    </Button>
                   ))}
-                </Group>
-              </Chip.Group>
-            ) : null}
-          </Stack>
-          <Textarea
-            label="Notas"
-            placeholder="Opcional"
-            minRows={2}
-            value={note}
-            onChange={(event) => setNote(event.currentTarget.value)}
-          />
-        </Stack>
-      </Card>
+                </SimpleGrid>
+                <Button variant="light" onClick={() => handleNumpadPress('C')}>
+                  Limpiar
+                </Button>
+              </Stack>
+            </Stack>
+          </Card>
+          <Group justify="space-between" mt="md">
+            <Button variant="default" onClick={handlePreviousStep}>
+              Atrás
+            </Button>
+            <Button onClick={handleNextStep} disabled={!canProceedAmount}>
+              Siguiente
+            </Button>
+          </Group>
+        </Stepper.Step>
 
-      <Button onClick={handleSaveExpense} loading={isCreatingExpense}>
-        Guardar gasto
-      </Button>
+        <Stepper.Step label="Método de pago" description="Elegí cómo pagaste">
+          <Card withBorder radius="md" padding="md">
+            <Stack gap={6}>
+              <Group justify="space-between">
+                <Text fw={500} size="sm">
+                  Método de pago
+                </Text>
+                <Button size="xs" variant="light" onClick={() => setIsPaymentMethodModalOpen(true)}>
+                  Agregar
+                </Button>
+              </Group>
+              {paymentMethods.length === 0 ? (
+                <Text size="sm" c="dimmed">
+                  No hay métodos de pago aún.
+                </Text>
+              ) : null}
+              {paymentMethods.length > 0 ? (
+                <Chip.Group
+                  value={paymentMethodId}
+                  onChange={(value) => {
+                    if (typeof value === 'string') {
+                      setPaymentMethodId(value);
+                      setActiveStep(4);
+                    } else {
+                      setPaymentMethodId(null);
+                    }
+                  }}
+                >
+                  <Group gap="xs" wrap="wrap">
+                    {paymentMethods.map((method) => (
+                      <Chip key={method.id} value={method.id}>
+                        {method.name}
+                      </Chip>
+                    ))}
+                  </Group>
+                </Chip.Group>
+              ) : null}
+            </Stack>
+          </Card>
+          <Group justify="space-between" mt="md">
+            <Button variant="default" onClick={handlePreviousStep}>
+              Atrás
+            </Button>
+            <Button onClick={handleNextStep}>Siguiente</Button>
+          </Group>
+        </Stepper.Step>
+
+        <Stepper.Step label="Detalles" description="Fecha, nota y guardar">
+          <Card withBorder radius="md" padding="md">
+            <Stack gap="sm">
+              <TextInput
+                type="date"
+                label="Fecha"
+                value={expenseDate}
+                onChange={(event) => setExpenseDate(event.currentTarget.value)}
+              />
+              <Textarea
+                label="Notas"
+                placeholder="Opcional"
+                minRows={2}
+                value={note}
+                onChange={(event) => setNote(event.currentTarget.value)}
+              />
+            </Stack>
+          </Card>
+          <Group justify="space-between" mt="md">
+            <Button variant="default" onClick={handlePreviousStep}>
+              Atrás
+            </Button>
+            <Button onClick={handleSaveExpense} loading={isCreatingExpense}>
+              Guardar gasto
+            </Button>
+          </Group>
+        </Stepper.Step>
+      </Stepper>
 
       <Modal
         opened={isCategoryModalOpen}
