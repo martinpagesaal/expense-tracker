@@ -8,7 +8,7 @@ alwaysApply: false
 
 ## ⚠️ IMPORTANT: This Project Uses the `tw:` Prefix
 
-**CRITICAL**: This project uses the `tw:` prefix for ALL Tailwind CSS classes. Every Tailwind class must be prefixed with `tw:`.
+**CRITICAL**: This project uses the `tw:` prefix for ALL Tailwind CSS classes. Every Tailwind class must be prefixed with `tw:` (colon), **not** `tw-` (hyphen).
 
 ```tsx
 // ✅ CORRECT - All classes prefixed with tw:
@@ -29,6 +29,7 @@ alwaysApply: false
 **Rules**:
 
 - Every Tailwind utility class needs `tw:` prefix (e.g., `tw:flex`, `tw:mt-4`, `tw:text-red-500`)
+- `tw-` is invalid; only `tw:` works with the v4 prefix syntax
 - Variants also use the prefix (e.g., `tw:hover:bg-blue-600`, `tw:md:flex`, `tw:dark:bg-gray-800`)
 - Arbitrary values work the same way (e.g., `tw:w-[200px]`, `tw:bg-[#1da1f2]`)
 - The prefix is configured in `src/app.css` via `@import 'tailwindcss' prefix(tw);`

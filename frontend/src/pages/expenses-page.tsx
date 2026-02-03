@@ -9,6 +9,7 @@ import {
   Popover,
   ScrollArea,
   Select,
+  SimpleGrid,
   Stack,
   Table,
   Text,
@@ -24,10 +25,10 @@ import * as React from 'react';
 import { useTenant } from '@/hooks/app/use-tenant';
 import { useAuthContext } from '@/hooks/contexts/use-auth-context';
 import { useCategories } from '@/hooks/expenses/use-categories';
+import { useDeleteExpense } from '@/hooks/expenses/use-delete-expense';
 import { useExpenses } from '@/hooks/expenses/use-expenses';
 import { usePaymentMethods } from '@/hooks/expenses/use-payment-methods';
 import { useProfiles } from '@/hooks/expenses/use-profiles';
-import { useDeleteExpense } from '@/hooks/expenses/use-delete-expense';
 import { useUpdateExpense } from '@/hooks/expenses/use-update-expense';
 import type { ExpenseFilters } from '@/lib/supabase-queries';
 import type { Expense } from '@/lib/types';
@@ -186,7 +187,7 @@ export const ExpensesPage = () => {
       await deleteExpense({ expenseId: expense.id });
       notifications.show({ message: 'Gasto eliminado', color: 'green' });
       setOpenedDeleteId(null);
-    } catch (error) {
+    } catch {
       notifications.show({ message: 'No se pudo eliminar el gasto.', color: 'red' });
     }
   };
@@ -194,7 +195,7 @@ export const ExpensesPage = () => {
   const totalUsd = expenses.reduce((total, expense) => total + expense.amount_usd, 0);
   const totalArs = expenses.reduce((total, expense) => total + expense.amount_ars, 0);
   const tableContent = (
-    <Table striped highlightOnHover withTableBorder withColumnBorders>
+    <Table striped highlightOnHover withTableBorder withColumnBorders stickyHeader>
       <Table.Thead>
         <Table.Tr>
           <Table.Th>Fecha</Table.Th>
@@ -217,8 +218,7 @@ export const ExpensesPage = () => {
             'Sin categoría';
           const subcategoryName =
             expense.subcategory?.name ||
-            subcategories.find((subcategory) => subcategory.id === expense.subcategory_id)
-              ?.name ||
+            subcategories.find((subcategory) => subcategory.id === expense.subcategory_id)?.name ||
             '';
           const paymentMethodName =
             expense.payment_method?.name ||
@@ -328,29 +328,27 @@ export const ExpensesPage = () => {
   );
 
   return (
-    <Stack gap="md">
+    <Stack gap="md" h="100%" className="tw:flex-1 tw:min-h-0 tw:overflow-hidden">
       <Title order={3}>Gastos</Title>
 
       <Card withBorder radius="md" padding="md">
-        <Stack gap="sm">
-          <Group grow>
-            <TextInput
-              type="date"
-              label="Desde"
-              value={filters.startDate}
-              onChange={(event) =>
-                setFilters((prev) => ({ ...prev, startDate: event.currentTarget.value }))
-              }
-            />
-            <TextInput
-              type="date"
-              label="Hasta"
-              value={filters.endDate}
-              onChange={(event) =>
-                setFilters((prev) => ({ ...prev, endDate: event.currentTarget.value }))
-              }
-            />
-          </Group>
+        <SimpleGrid cols={{ base: 1, sm: 2, lg: 6 }} spacing="sm" verticalSpacing="sm">
+          <TextInput
+            type="date"
+            label="Desde"
+            value={filters.startDate}
+            onChange={(event) =>
+              setFilters((prev) => ({ ...prev, startDate: event.currentTarget.value }))
+            }
+          />
+          <TextInput
+            type="date"
+            label="Hasta"
+            value={filters.endDate}
+            onChange={(event) =>
+              setFilters((prev) => ({ ...prev, endDate: event.currentTarget.value }))
+            }
+          />
           <Select
             label="Categoría"
             placeholder="Todas"
@@ -383,10 +381,10 @@ export const ExpensesPage = () => {
             onChange={(value) => setFilters((prev) => ({ ...prev, currencyCode: value || '' }))}
             clearable
           />
-          <Button variant="light" onClick={resetFilters}>
+          <Button variant="light" onClick={resetFilters} className="tw:self-end">
             Limpiar filtros
           </Button>
-        </Stack>
+        </SimpleGrid>
       </Card>
 
       {isLoading ? (
@@ -402,8 +400,13 @@ export const ExpensesPage = () => {
       ) : null}
 
       {!isLoading && expenses.length > 0 ? (
-        <Card withBorder radius="md" padding="md">
-          {isMobile ? <ScrollArea>{tableContent}</ScrollArea> : tableContent}
+        <Card
+          withBorder
+          radius="md"
+          padding="md"
+          className="tw:flex tw:flex-col tw:flex-1 tw:min-h-0"
+        >
+          <ScrollArea className="tw:flex-1">{tableContent}</ScrollArea>
         </Card>
       ) : null}
 

@@ -261,7 +261,7 @@ export const NewExpensePage = () => {
   };
 
   return (
-    <Stack gap="md" className="tw-h-full">
+    <Stack gap="md" className="tw:h-full">
       <Title order={3}>Nuevo gasto</Title>
 
       <Stepper
@@ -493,7 +493,7 @@ export const NewExpensePage = () => {
           </Card>
         </Stepper.Step>
       </Stepper>
-
+      <div className="tw:grow" />
       <Card withBorder radius="md" padding="sm">
         <Group justify="space-between">
           <Button variant="default" onClick={handlePreviousStep} disabled={activeStep === 0}>

@@ -46,8 +46,8 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
         </Group>
       </AppShell.Header>
 
-      <AppShell.Main>
-        <Stack gap="md" w="100%" maw={520} mx="auto">
+      <AppShell.Main className="tw:flex">
+        <Stack gap="md" w="100%" maw="100%" mx="auto" className="tw:flex-1 tw:min-h-0">
           {children}
         </Stack>
       </AppShell.Main>
