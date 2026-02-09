@@ -557,7 +557,7 @@ declare module "process" {
                     readonly node_shared_v8: boolean;
                     readonly node_shared_zlib: boolean;
                     readonly node_use_dtrace: boolean;
-                    readonly node_use_etw: boolean;
+                    readonly node_use_etw- boolean;
                     readonly node_use_openssl: boolean;
                     readonly target_arch: string;
                     readonly v8_no_strict_aliasing: number;

@@ -27,19 +27,19 @@ alwaysApply: false
 ```typescript
 // ✅ CORRECT - Await promise
 const handleSubmit = async () => {
-  await createUser({ name: 'John' });
-  await queryClient.invalidateQueries({ queryKey: ['users'] });
+  await createUser({ name: "John" });
+  await queryClient.invalidateQueries({ queryKey: ["users"] });
 };
 
 // ✅ CORRECT - Void when response not needed
 const handleClick = () => {
-  void trackEvent('button_clicked');
+  void trackEvent("button_clicked");
 };
 
 // ✅ CORRECT - Async/await for query invalidation
 const handleDelete = async () => {
   await deleteUser(userId);
-  await queryClient.invalidateQueries({ queryKey: ['users'] });
+  await queryClient.invalidateQueries({ queryKey: ["users"] });
 };
 ```
 
@@ -48,13 +48,13 @@ const handleDelete = async () => {
 ```typescript
 // ❌ WRONG - Fire and forget without void
 const handleClick = () => {
-  trackEvent('button_clicked'); // Missing void or await
+  trackEvent("button_clicked"); // Missing void or await
 };
 
 // ❌ WRONG - Using .then() instead of async/await
 const handleDelete = () => {
   deleteUser(userId).then(() => {
-    queryClient.invalidateQueries({ queryKey: ['users'] });
+    queryClient.invalidateQueries({ queryKey: ["users"] });
   });
 };
 ```
@@ -75,7 +75,7 @@ const handleDelete = () => {
 
 ```typescript
 // ✅ CORRECT - Use ?? for null/undefined checks
-const name = user.name ?? 'Anonymous';
+const name = user.name ?? "Anonymous";
 const count = items?.length ?? 0;
 const color = workflow.color ?? undefined;
 const enabled = options?.enabled ?? true;
@@ -85,7 +85,7 @@ const enabled = options?.enabled ?? true;
 
 ```typescript
 // ❌ WRONG - Using || when ?? is more appropriate
-const name = user.name || 'Anonymous'; // This treats empty string as missing
+const name = user.name || "Anonymous"; // This treats empty string as missing
 const count = items?.length || 0; // This treats 0 as missing
 const enabled = options?.enabled || true; // This treats false as missing
 ```
@@ -94,8 +94,8 @@ const enabled = options?.enabled || true; // This treats false as missing
 
 ```typescript
 // ✅ CORRECT - Use || when you want to handle all falsy values
-const displayName = user.displayName || user.name || 'Anonymous';
-const isActive = status === 'active' || status === 'pending';
+const displayName = user.displayName || user.name || "Anonymous";
+const isActive = status === "active" || status === "pending";
 ```
 
 ## Type Safety
@@ -129,10 +129,10 @@ const handleData = (data: unknown) => {
 
 function isUser(value: unknown): value is User {
   return (
-    typeof value === 'object' &&
+    typeof value === "object" &&
     value !== null &&
-    'id' in value &&
-    'name' in value
+    "id" in value &&
+    "name" in value
   );
 }
 ```
@@ -167,19 +167,19 @@ const handleData = (data) => {
 
 ```typescript
 // ✅ CORRECT - Properly typed mutation
-import { useMutation } from '@tanstack/react-query';
-import type { User, CreateUserInput } from '@/types/user';
+import { useMutation } from "@tanstack/react-query";
+import type { User, CreateUserInput } from "@/types/user";
 
 export const useCreateUser = () => {
   return useMutation<User, Error, CreateUserInput>({
     mutationFn: async (input: CreateUserInput): Promise<User> => {
-      const response = await fetch('/api/users', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const response = await fetch("/api/users", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(input),
       });
       if (!response.ok) {
-        throw new Error('Failed to create user');
+        throw new Error("Failed to create user");
       }
       return response.json();
     },
@@ -187,16 +187,16 @@ export const useCreateUser = () => {
 };
 
 // ✅ CORRECT - Properly typed query
-import { useQuery } from '@tanstack/react-query';
-import type { User } from '@/types/user';
+import { useQuery } from "@tanstack/react-query";
+import type { User } from "@/types/user";
 
 export const useGetUser = (userId: string) => {
   return useQuery<User, Error>({
-    queryKey: ['user', userId],
+    queryKey: ["user", userId],
     queryFn: async (): Promise<User> => {
       const response = await fetch(`/api/users/${userId}`);
       if (!response.ok) {
-        throw new Error('Failed to fetch user');
+        throw new Error("Failed to fetch user");
       }
       return response.json();
     },
@@ -262,7 +262,7 @@ export interface UpdateUserInput {
 }
 
 // ✅ CORRECT - Using types in hooks
-import type { User, CreateUserInput } from '@/types/user';
+import type { User, CreateUserInput } from "@/types/user";
 
 export const useCreateUser = () => {
   return useMutation<User, Error, CreateUserInput>({
@@ -307,7 +307,7 @@ export function Button({ label, onClick, variant = 'primary', disabled = false }
     <button
       onClick={onClick}
       disabled={disabled}
-      className={`tw:px-4 tw:py-2 tw:rounded ${variant === 'primary' ? 'tw:bg-blue-500' : 'tw:bg-gray-500'}`}
+      className={`tw-px-4 tw-py-2 tw-rounded ${variant === 'primary' ? 'tw-bg-blue-500' : 'tw-bg-gray-500'}`}
     >
       {label}
     </button>

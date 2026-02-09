@@ -11,10 +11,10 @@ export function SignIn() {
   return (
     <div className="tw:flex tw:flex-col tw:items-center tw:justify-center tw:min-h-[50vh] tw:gap-6">
       <div className="tw:text-center">
-        <h1 className="tw:text-3xl tw:font-bold tw:text-gray-900 tw:dark:text-white tw:mb-2">
+        <h1 className="tw:text-3xl tw:font-bold tw:text-gray-900 tw:mb-2 dark:tw:text-white">
           Bienvenido
         </h1>
-        <p className="tw:text-gray-600 tw:dark:text-gray-400">Inicia sesión para continuar</p>
+        <p className="tw:text-gray-600 dark:tw:text-gray-400">Inicia sesión para continuar</p>
       </div>
 
       <GoogleSignInButton onClick={handleSignIn} isLoading={isPending} />
